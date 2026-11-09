@@ -6,6 +6,7 @@ class SongModel {
   final String uri;
   final int duration; // in milliseconds
   final int? albumId;
+  final int dateAdded; // timestamp for sorting latest downloaded
   int playCount;
   int lastPlayed;
   bool isFavorite;
@@ -18,6 +19,7 @@ class SongModel {
     required this.uri,
     required this.duration,
     this.albumId,
+    this.dateAdded = 0,
     this.playCount = 0,
     this.lastPlayed = 0,
     this.isFavorite = false,
@@ -32,6 +34,7 @@ class SongModel {
       'uri': uri,
       'duration': duration,
       'albumId': albumId,
+      'dateAdded': dateAdded,
       'playCount': playCount,
       'lastPlayed': lastPlayed,
       'isFavorite': isFavorite,
@@ -47,6 +50,7 @@ class SongModel {
       uri: json['uri'] as String? ?? '',
       duration: json['duration'] as int? ?? 0,
       albumId: json['albumId'] as int?,
+      dateAdded: json['dateAdded'] as int? ?? 0,
       playCount: json['playCount'] as int? ?? 0,
       lastPlayed: json['lastPlayed'] as int? ?? 0,
       isFavorite: json['isFavorite'] as bool? ?? false,
@@ -61,6 +65,7 @@ class SongModel {
     String? uri,
     int? duration,
     int? albumId,
+    int? dateAdded,
     int? playCount,
     int? lastPlayed,
     bool? isFavorite,
@@ -73,6 +78,7 @@ class SongModel {
       uri: uri ?? this.uri,
       duration: duration ?? this.duration,
       albumId: albumId ?? this.albumId,
+      dateAdded: dateAdded ?? this.dateAdded,
       playCount: playCount ?? this.playCount,
       lastPlayed: lastPlayed ?? this.lastPlayed,
       isFavorite: isFavorite ?? this.isFavorite,

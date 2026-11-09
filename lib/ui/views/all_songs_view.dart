@@ -6,7 +6,7 @@ import '../../providers/music_provider.dart';
 import '../widgets/album_art_widget.dart';
 import '../widgets/sound_wave_visualizer.dart';
 
-enum SongSortOption { title, artist, duration, playCount }
+enum SongSortOption { dateAdded, title, artist, duration, playCount }
 
 class AllSongsView extends StatefulWidget {
   const AllSongsView({super.key});
@@ -15,9 +15,13 @@ class AllSongsView extends StatefulWidget {
   State<AllSongsView> createState() => _AllSongsViewState();
 }
 
-class _AllSongsViewState extends State<AllSongsView> {
+class _AllSongsViewState extends State<AllSongsView>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final TextEditingController _searchController = TextEditingController();
-  SongSortOption _sortOption = SongSortOption.title;
+  SongSortOption _sortOption = SongSortOption.dateAdded;
   String _searchQuery = '';
 
   @override
@@ -38,7 +42,7 @@ class _AllSongsViewState extends State<AllSongsView> {
       context: context,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
       ),
       builder: (ctx) {
         return Padding(
@@ -46,6 +50,15 @@ class _AllSongsViewState extends State<AllSongsView> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Container(
+                width: 44,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: AppColors.textMuted.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
               const Text(
                 'ترتيب الأغاني حسب',
                 style: TextStyle(
@@ -55,9 +68,10 @@ class _AllSongsViewState extends State<AllSongsView> {
                 ),
               ),
               const SizedBox(height: 12),
+              _buildSortItem(ctx, 'المحملة مؤخراً (أحدث إضافة) ⚡', SongSortOption.dateAdded),
+              _buildSortItem(ctx, 'الأكثر استماعاً 🔥', SongSortOption.playCount),
               _buildSortItem(ctx, 'اسم الأغنية (أ - ي)', SongSortOption.title),
               _buildSortItem(ctx, 'اسم الفنان', SongSortOption.artist),
-              _buildSortItem(ctx, 'الأكثر استماعاً 🔥', SongSortOption.playCount),
               _buildSortItem(ctx, 'مدة المقطع', SongSortOption.duration),
             ],
           ),
@@ -226,6 +240,8 @@ class _AllSongsViewState extends State<AllSongsView> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     return Consumer<MusicProvider>(
       builder: (context, provider, _) {
         var songs = List<SongModel>.from(provider.allSongs);
@@ -242,6 +258,9 @@ class _AllSongsViewState extends State<AllSongsView> {
 
         // Apply Sorting
         switch (_sortOption) {
+          case SongSortOption.dateAdded:
+            songs.sort((a, b) => b.dateAdded.compareTo(a.dateAdded));
+            break;
           case SongSortOption.title:
             songs.sort((a, b) => a.title.compareTo(b.title));
             break;
@@ -259,6 +278,8 @@ class _AllSongsViewState extends State<AllSongsView> {
         return Scaffold(
           backgroundColor: AppColors.background,
           appBar: AppBar(
+            backgroundColor: AppColors.background.withValues(alpha: 0.85),
+            elevation: 0,
             title: const Text(
               'جميع الأغاني',
               style: TextStyle(
@@ -277,14 +298,17 @@ class _AllSongsViewState extends State<AllSongsView> {
           ),
           body: Column(
             children: [
-              // Search Bar
+              // Liquid Glass Search Bar
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.border),
+                    color: Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      width: 1.2,
+                    ),
                   ),
                   child: TextField(
                     controller: _searchController,
@@ -317,7 +341,7 @@ class _AllSongsViewState extends State<AllSongsView> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '${songs.length} أغنية مفحوصة',
+                      '${songs.length} أغنية • ${_sortOption == SongSortOption.dateAdded ? 'الأحدث أولاً ⚡' : 'مفرزة'}',
                       style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontWeight: FontWeight.w600,
@@ -329,7 +353,7 @@ class _AllSongsViewState extends State<AllSongsView> {
                         const Icon(Icons.check_circle_outline_rounded, color: AppColors.primary, size: 14),
                         const SizedBox(width: 4),
                         const Text(
-                          'أغاني فقط (بدون ريكوردات)',
+                          'أغاني وموسيقى فقط',
                           style: TextStyle(
                             color: AppColors.primary,
                             fontSize: 11,
@@ -342,7 +366,7 @@ class _AllSongsViewState extends State<AllSongsView> {
                 ),
               ),
 
-              // Songs List
+              // Songs List with Liquid Glass Styling
               Expanded(
                 child: songs.isEmpty
                     ? Center(
@@ -360,7 +384,7 @@ class _AllSongsViewState extends State<AllSongsView> {
                       )
                     : ListView.builder(
                         physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.only(bottom: 120),
+                        padding: const EdgeInsets.only(bottom: 130),
                         itemCount: songs.length,
                         itemBuilder: (context, index) {
                           final song = songs[index];
@@ -370,13 +394,15 @@ class _AllSongsViewState extends State<AllSongsView> {
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                             child: Material(
                               color: isCurrent
-                                  ? AppColors.primary.withValues(alpha: 0.12)
-                                  : AppColors.surface,
+                                  ? AppColors.primary.withValues(alpha: 0.15)
+                                  : Colors.white.withValues(alpha: 0.05),
                               clipBehavior: Clip.antiAlias,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(16),
                                 side: BorderSide(
-                                  color: isCurrent ? AppColors.primary : AppColors.border,
+                                  color: isCurrent
+                                      ? AppColors.primary
+                                      : Colors.white.withValues(alpha: 0.12),
                                   width: isCurrent ? 1.5 : 1,
                                 ),
                               ),
@@ -395,7 +421,7 @@ class _AllSongsViewState extends State<AllSongsView> {
                                         width: 48,
                                         height: 48,
                                         decoration: BoxDecoration(
-                                          color: Colors.black.withValues(alpha: 0.5),
+                                          color: Colors.black.withValues(alpha: 0.55),
                                           borderRadius: BorderRadius.circular(12),
                                         ),
                                         child: const Center(
@@ -419,54 +445,54 @@ class _AllSongsViewState extends State<AllSongsView> {
                                   ),
                                 ),
                                 subtitle: Row(
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      song.artist,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        song.artist,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                    if (song.playCount > 0) ...[
+                                      const Text(' • ', style: TextStyle(color: AppColors.textMuted)),
+                                      Text(
+                                        '${song.playCount}▶',
+                                        style: const TextStyle(
+                                          color: AppColors.primary,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _formatDuration(song.duration),
                                       style: const TextStyle(
-                                        color: AppColors.textSecondary,
+                                        color: AppColors.textMuted,
                                         fontSize: 12,
                                       ),
                                     ),
-                                  ),
-                                  if (song.playCount > 0) ...[
-                                    const Text(' • ', style: TextStyle(color: AppColors.textMuted)),
-                                    Text(
-                                      '${song.playCount}▶',
-                                      style: const TextStyle(
-                                        color: AppColors.primary,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                    const SizedBox(width: 4),
+                                    IconButton(
+                                      icon: const Icon(Icons.more_vert_rounded, color: AppColors.textSecondary),
+                                      onPressed: () => _showSongOptions(context, song),
                                     ),
                                   ],
-                                ],
+                                ),
+                                onTap: () => provider.playSong(song, queue: songs),
                               ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    _formatDuration(song.duration),
-                                    style: const TextStyle(
-                                      color: AppColors.textMuted,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  IconButton(
-                                    icon: const Icon(Icons.more_vert_rounded, color: AppColors.textSecondary),
-                                    onPressed: () => _showSongOptions(context, song),
-                                  ),
-                                ],
-                              ),
-                              onTap: () => provider.playSong(song, queue: songs),
                             ),
-                          ),
-                        );
-                      },
-                    ),
+                          );
+                        },
+                      ),
               ),
             ],
           ),

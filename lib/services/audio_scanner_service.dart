@@ -7,7 +7,6 @@ import '../models/song_model.dart';
 class AudioScannerService {
   final oaq.OnAudioQuery _audioQuery = oaq.OnAudioQuery();
 
-  // Folders and keywords to strictly exclude (recordings, voice notes, notifications)
   static final List<String> _blacklistPathKeywords = [
     'whatsapp',
     'voice notes',
@@ -36,12 +35,10 @@ class AudioScannerService {
     'audio_',
   ];
 
-  /// Request permissions for reading audio on Android / iOS
   Future<bool> requestPermissions() async {
     if (kIsWeb) return true;
 
     if (Platform.isAndroid) {
-      // Android 13+ (API 33+) uses audio permission, older versions use storage
       final audioStatus = await Permission.audio.status;
       if (audioStatus.isGranted) return true;
 
@@ -57,7 +54,7 @@ class AudioScannerService {
     return true;
   }
 
-  /// Scans device and returns ONLY pure music tracks
+  /// Scans device and returns ONLY pure music tracks sorted by Latest Downloaded
   Future<List<SongModel>> scanMusic() async {
     List<SongModel> songs = [];
 
@@ -69,24 +66,31 @@ class AudioScannerService {
           return _getSampleTracks();
         }
 
+        // Query sorted by DATE_ADDED DESC (Latest downloaded first)
         final rawSongs = await _audioQuery.querySongs(
-          sortType: oaq.SongSortType.TITLE,
-          orderType: oaq.OrderType.ASC_OR_SMALLER,
+          sortType: oaq.SongSortType.DATE_ADDED,
+          orderType: oaq.OrderType.DESC_OR_GREATER,
           uriType: oaq.UriType.EXTERNAL,
           ignoreCase: true,
         );
 
         for (final item in rawSongs) {
           if (_isStrictlyMusic(item)) {
+            // Prefer content uri for playback, or data path
+            final playbackUri = item.uri != null && item.uri!.isNotEmpty
+                ? item.uri!
+                : item.data;
+
             songs.add(
               SongModel(
                 id: item.id,
                 title: _cleanTitle(item.title),
                 artist: _cleanArtist(item.artist),
                 album: item.album ?? 'Single',
-                uri: item.uri ?? item.data,
+                uri: playbackUri,
                 duration: item.duration ?? 0,
                 albumId: item.albumId,
+                dateAdded: item.dateAdded ?? 0,
               ),
             );
           }
@@ -98,7 +102,6 @@ class AudioScannerService {
       debugPrint('Error scanning music: $e');
     }
 
-    // If device has no local music files yet, return high quality sample tracks for immediate testing
     if (songs.isEmpty) {
       songs = _getSampleTracks();
     }
@@ -106,26 +109,21 @@ class AudioScannerService {
     return songs;
   }
 
-  /// Strict filtering logic to ensure ONLY songs are shown
   bool _isStrictlyMusic(oaq.SongModel item) {
-    // 1. Minimum duration: 40 seconds (filters out WhatsApp voice notes, UI sounds, ringtones)
     final duration = item.duration ?? 0;
     if (duration < 40000) return false;
 
-    // 2. Check Android MediaStore flags
     if (item.isMusic == false) return false;
     if (item.isNotification == true) return false;
     if (item.isRingtone == true) return false;
     if (item.isAlarm == true) return false;
     if (item.isPodcast == true) return false;
 
-    // 3. Blacklist path keywords (WhatsApp, Telegram, Call Recordings, Mic)
     final path = (item.data).toLowerCase();
     for (final keyword in _blacklistPathKeywords) {
       if (path.contains(keyword)) return false;
     }
 
-    // 4. Blacklist filename / title prefixes (e.g. AUD-2023..., PTT-...)
     final title = (item.title).toLowerCase().trim();
     for (final prefix in _blacklistTitlePrefixes) {
       if (title.startsWith(prefix)) return false;
@@ -147,7 +145,6 @@ class AudioScannerService {
     return artist.trim();
   }
 
-  /// Scans Windows Music & User directory for desktop testing
   Future<List<SongModel>> _scanWindowsMusic() async {
     final List<SongModel> songs = [];
     try {
@@ -156,7 +153,7 @@ class AudioScannerService {
 
       final musicDir = Directory('$userProfile\\Music');
       if (await musicDir.exists()) {
-        final files = musicDir.listSync(recursive: true);
+        final files = musicDir.listSync(recursive: false);
         int fakeId = 1000;
         for (final f in files) {
           if (f is File) {
@@ -171,6 +168,7 @@ class AudioScannerService {
                   album: 'Desktop Music',
                   uri: f.path,
                   duration: 210000,
+                  dateAdded: DateTime.now().millisecondsSinceEpoch ~/ 1000,
                 ),
               );
             }
@@ -181,7 +179,6 @@ class AudioScannerService {
     return songs;
   }
 
-  /// Curated royalty-free sample tracks for demonstration & zero-setup preview
   List<SongModel> _getSampleTracks() {
     return [
       SongModel(
@@ -193,6 +190,7 @@ class AudioScannerService {
         duration: 147000,
         playCount: 15,
         isFavorite: true,
+        dateAdded: 1700000004,
       ),
       SongModel(
         id: 9002,
@@ -203,6 +201,7 @@ class AudioScannerService {
         duration: 132000,
         playCount: 28,
         isFavorite: true,
+        dateAdded: 1700000003,
       ),
       SongModel(
         id: 9003,
@@ -212,6 +211,7 @@ class AudioScannerService {
         uri: 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_12b0c7443c.mp3?filename=ambient-piano-amp-strings-10711.mp3',
         duration: 184000,
         playCount: 9,
+        dateAdded: 1700000002,
       ),
       SongModel(
         id: 9004,
@@ -222,6 +222,7 @@ class AudioScannerService {
         duration: 165000,
         playCount: 34,
         isFavorite: true,
+        dateAdded: 1700000001,
       ),
     ];
   }

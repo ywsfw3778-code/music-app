@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/music_provider.dart';
 import '../widgets/album_art_widget.dart';
 import '../widgets/interactive_scale_tap.dart';
 import '../widgets/sound_wave_visualizer.dart';
 
-class HomeView extends StatelessWidget {
+class HomeView extends StatefulWidget {
   const HomeView({super.key});
+
+  @override
+  State<HomeView> createState() => _HomeViewState();
+}
+
+class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
 
   String _formatDuration(int ms) {
     final d = Duration(milliseconds: ms);
@@ -19,6 +26,8 @@ class HomeView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     return Consumer<MusicProvider>(
       builder: (context, provider, _) {
         if (provider.isLoading) {
@@ -38,26 +47,34 @@ class HomeView extends StatelessWidget {
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              // Modern App Bar
+              // Liquid Glass App Bar
               SliverAppBar(
                 floating: true,
-                backgroundColor: AppColors.background.withValues(alpha: 0.9),
+                backgroundColor: AppColors.background.withValues(alpha: 0.85),
+                elevation: 0,
                 title: Row(
                   children: [
                     Container(
-                      width: 36,
-                      height: 36,
+                      width: 38,
+                      height: 38,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [AppColors.primary, AppColors.accent],
                         ),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.4),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
                       child: const Center(
-                        child: Icon(Icons.graphic_eq_rounded, color: Colors.white, size: 20),
+                        child: Icon(Icons.graphic_eq_rounded, color: Colors.black, size: 22),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
                     const Text(
                       'Echo Music',
                       style: TextStyle(
@@ -85,35 +102,52 @@ class HomeView extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 12),
-                      // Greeting Card / Status
+
+                      // Liquid Glass Status Banner
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.16),
+                            width: 1.2,
+                          ),
                           gradient: LinearGradient(
-                            colors: [
-                              AppColors.primary.withValues(alpha: 0.18),
-                              AppColors.surface,
-                            ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
+                            colors: [
+                              Colors.white.withValues(alpha: 0.10),
+                              AppColors.surface.withValues(alpha: 0.70),
+                            ],
                           ),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: AppColors.primary.withValues(alpha: 0.25),
-                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withValues(alpha: 0.08),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
                         child: Row(
                           children: [
                             Container(
                               padding: const EdgeInsets.all(10),
-                              decoration: const BoxDecoration(
-                                color: AppColors.primary,
+                              decoration: BoxDecoration(
                                 shape: BoxShape.circle,
+                                gradient: const LinearGradient(
+                                  colors: [AppColors.primary, Color(0xFF10B981)],
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.primary.withValues(alpha: 0.35),
+                                    blurRadius: 8,
+                                  ),
+                                ],
                               ),
                               child: const Icon(
                                 Icons.headphones_rounded,
                                 color: Colors.black,
-                                size: 24,
+                                size: 22,
                               ),
                             ),
                             const SizedBox(width: 14),
@@ -122,19 +156,19 @@ class HomeView extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
-                                    'أغانيك بدون أي ريكوردات',
+                                    'أغانيك صافية ومفرزة',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 15,
                                       color: AppColors.textPrimary,
                                     ),
                                   ),
-                                  const SizedBox(height: 2),
+                                  const SizedBox(height: 3),
                                   Text(
-                                    'تم فحص ${allSongs.length} أغنية وموسيقى صافية',
-                                    style: const TextStyle(
+                                    'تم فحص ${allSongs.length} أغنية • بدون ريكوردات أو واتساب',
+                                    style: TextStyle(
                                       fontSize: 12,
-                                      color: AppColors.textSecondary,
+                                      color: AppColors.textSecondary.withValues(alpha: 0.9),
                                     ),
                                   ),
                                 ],
@@ -142,7 +176,7 @@ class HomeView extends StatelessWidget {
                             ),
                           ],
                         ),
-                      ).animate().fade().slideY(begin: -0.1, end: 0, duration: 350.ms),
+                      ),
 
                       const SizedBox(height: 24),
 
@@ -161,19 +195,22 @@ class HomeView extends StatelessWidget {
                                     color: AppColors.textPrimary,
                                   ),
                                 ),
-                                const SizedBox(width: 6),
+                                const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.15),
+                                    color: AppColors.primary.withValues(alpha: 0.16),
                                     borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: AppColors.primary.withValues(alpha: 0.3),
+                                    ),
                                   ),
                                   child: const Text(
                                     '🔥 TOP',
                                     style: TextStyle(
                                       color: AppColors.primary,
                                       fontSize: 10,
-                                      fontWeight: FontWeight.bold,
+                                      fontWeight: FontWeight.w900,
                                     ),
                                   ),
                                 ),
@@ -190,9 +227,9 @@ class HomeView extends StatelessWidget {
                         ),
                         const SizedBox(height: 14),
 
-                        // Horizontal Most Played Cards
+                        // Horizontal Most Played Liquid Glass Cards
                         SizedBox(
-                          height: 195,
+                          height: 200,
                           child: ListView.builder(
                             scrollDirection: Axis.horizontal,
                             physics: const BouncingScrollPhysics(),
@@ -202,21 +239,21 @@ class HomeView extends StatelessWidget {
                               final isCurrent = provider.currentSong?.id == song.id;
 
                               return Container(
-                                width: 140,
-                                margin: const EdgeInsets.only(left: 14),
+                                width: 142,
+                                margin: const EdgeInsets.only(left: 12),
                                 child: InteractiveScaleTap(
                                   onTap: () => provider.playSong(song, queue: mostPlayed),
                                   child: Container(
                                     padding: const EdgeInsets.all(10),
                                     decoration: BoxDecoration(
                                       color: isCurrent
-                                          ? AppColors.primary.withValues(alpha: 0.12)
-                                          : AppColors.surface,
-                                      borderRadius: BorderRadius.circular(16),
+                                          ? AppColors.primary.withValues(alpha: 0.15)
+                                          : Colors.white.withValues(alpha: 0.05),
+                                      borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
                                         color: isCurrent
                                             ? AppColors.primary
-                                            : AppColors.border,
+                                            : Colors.white.withValues(alpha: 0.14),
                                         width: isCurrent ? 1.5 : 1,
                                       ),
                                     ),
@@ -227,10 +264,10 @@ class HomeView extends StatelessWidget {
                                           children: [
                                             AlbumArtWidget(
                                               song: song,
-                                              size: 120,
-                                              borderRadius: 12,
+                                              size: 122,
+                                              borderRadius: 14,
                                             ),
-                                            // Rank Badge (1, 2, 3)
+                                            // Rank Badge
                                             Positioned(
                                               top: 6,
                                               right: 6,
@@ -259,7 +296,7 @@ class HomeView extends StatelessWidget {
                                               child: Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                 decoration: BoxDecoration(
-                                                  color: Colors.black.withValues(alpha: 0.75),
+                                                  color: Colors.black.withValues(alpha: 0.8),
                                                   borderRadius: BorderRadius.circular(6),
                                                 ),
                                                 child: Row(
@@ -291,6 +328,7 @@ class HomeView extends StatelessWidget {
                                             fontSize: 13,
                                           ),
                                         ),
+                                        const SizedBox(height: 2),
                                         Text(
                                           song.artist,
                                           maxLines: 1,
@@ -304,19 +342,14 @@ class HomeView extends StatelessWidget {
                                     ),
                                   ),
                                 ),
-                              ).animate().fade().scale(
-                                    begin: const Offset(0.9, 0.9),
-                                    end: const Offset(1, 1),
-                                    curve: Curves.easeOutBack,
-                                    delay: Duration(milliseconds: 40 * index),
-                                  );
+                              );
                             },
                           ),
                         ),
                         const SizedBox(height: 24),
                       ],
 
-                      // Section 2: Quick Play Grid (Spotify 6-pack style)
+                      // Section 2: Quick Play Grid (Liquid Glass Tiles)
                       const Text(
                         'تشغيل سريع',
                         style: TextStyle(
@@ -332,7 +365,7 @@ class HomeView extends StatelessWidget {
                         itemCount: allSongs.take(6).length,
                         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
-                          childAspectRatio: 2.8,
+                          childAspectRatio: 2.7,
                           crossAxisSpacing: 10,
                           mainAxisSpacing: 10,
                         ),
@@ -345,18 +378,21 @@ class HomeView extends StatelessWidget {
                             child: Container(
                               decoration: BoxDecoration(
                                 color: isCurrent
-                                    ? AppColors.primary.withValues(alpha: 0.12)
-                                    : AppColors.surface,
-                                borderRadius: BorderRadius.circular(12),
+                                    ? AppColors.primary.withValues(alpha: 0.16)
+                                    : Colors.white.withValues(alpha: 0.05),
+                                borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                  color: isCurrent ? AppColors.primary : AppColors.border,
+                                  color: isCurrent
+                                      ? AppColors.primary
+                                      : Colors.white.withValues(alpha: 0.12),
+                                  width: isCurrent ? 1.5 : 1,
                                 ),
                               ),
                               child: Row(
                                 children: [
                                   AlbumArtWidget(
                                     song: song,
-                                    size: 50,
+                                    size: 52,
                                     borderRadius: 12,
                                   ),
                                   const SizedBox(width: 8),
@@ -384,17 +420,13 @@ class HomeView extends StatelessWidget {
                                 ],
                               ),
                             ),
-                          ).animate().fade().slideY(
-                                begin: 0.1,
-                                end: 0,
-                                delay: Duration(milliseconds: 30 * index),
-                              );
+                          );
                         },
                       ),
 
                       const SizedBox(height: 28),
 
-                      // Section 3: Favorites (If exists)
+                      // Section 3: Favorites (Liquid Glass list)
                       if (favorites.isNotEmpty) ...[
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -424,42 +456,58 @@ class HomeView extends StatelessWidget {
 
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 8.0),
-                              child: Material(
-                                color: isCurrent
-                                    ? AppColors.primary.withValues(alpha: 0.1)
-                                    : AppColors.surface,
-                                clipBehavior: Clip.antiAlias,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  side: BorderSide(
-                                    color: isCurrent ? AppColors.primary : AppColors.border,
-                                  ),
-                                ),
-                                child: ListTile(
-                                  leading: AlbumArtWidget(
-                                    song: song,
-                                    size: 46,
-                                    borderRadius: 10,
-                                  ),
-                                  title: Text(
-                                    song.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: AppColors.textPrimary,
-                                      fontWeight: FontWeight.w600,
+                              child: InteractiveScaleTap(
+                                onTap: () => provider.playSong(song, queue: favorites),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: isCurrent
+                                        ? AppColors.primary.withValues(alpha: 0.14)
+                                        : Colors.white.withValues(alpha: 0.05),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: isCurrent
+                                          ? AppColors.primary
+                                          : Colors.white.withValues(alpha: 0.12),
+                                      width: isCurrent ? 1.5 : 1,
                                     ),
                                   ),
-                                  subtitle: Text(
-                                    song.artist,
-                                    maxLines: 1,
-                                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                                  child: Row(
+                                    children: [
+                                      AlbumArtWidget(
+                                        song: song,
+                                        size: 46,
+                                        borderRadius: 10,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              song.title,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                color: AppColors.textPrimary,
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                            Text(
+                                              song.artist,
+                                              maxLines: 1,
+                                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Text(
+                                        _formatDuration(song.duration),
+                                        style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                                      ),
+                                    ],
                                   ),
-                                  trailing: Text(
-                                    _formatDuration(song.duration),
-                                    style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                                  ),
-                                  onTap: () => provider.playSong(song, queue: favorites),
                                 ),
                               ),
                             );
@@ -467,8 +515,8 @@ class HomeView extends StatelessWidget {
                         ),
                       ],
 
-                      // Bottom spacing for Mini Player
-                      const SizedBox(height: 120),
+                      // Bottom spacing for Mini Player & Dock
+                      const SizedBox(height: 130),
                     ],
                   ),
                 ),

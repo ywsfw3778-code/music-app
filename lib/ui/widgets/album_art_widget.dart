@@ -26,8 +26,10 @@ class AlbumArtWidget extends StatelessWidget {
       content = oaq.QueryArtworkWidget(
         id: song.id,
         type: oaq.ArtworkType.AUDIO,
-        artworkWidth: size,
-        artworkHeight: size,
+        artworkWidth: 90,
+        artworkHeight: 90,
+        artworkQuality: FilterQuality.low,
+        keepOldArtwork: true,
         artworkFit: BoxFit.cover,
         artworkBorder: BorderRadius.circular(borderRadius),
         nullArtworkWidget: _buildFallback(),
@@ -67,12 +69,39 @@ class AlbumArtWidget extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
       ),
-      child: Center(
-        child: Icon(
-          Icons.music_note_rounded,
-          color: Colors.white.withValues(alpha: 0.9),
-          size: size * 0.45,
-        ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Subtle Vinyl Groove Ring
+          Container(
+            width: size * 0.72,
+            height: size * 0.72,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.15),
+                width: 1.2,
+              ),
+            ),
+          ),
+          Container(
+            width: size * 0.44,
+            height: size * 0.44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.black.withValues(alpha: 0.25),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.2),
+                width: 1,
+              ),
+            ),
+          ),
+          Icon(
+            Icons.graphic_eq_rounded,
+            color: Colors.white.withValues(alpha: 0.95),
+            size: size * 0.35,
+          ),
+        ],
       ),
     );
   }

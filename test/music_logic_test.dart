@@ -16,12 +16,14 @@ void main() {
         duration: 180000,
         playCount: 12,
         isFavorite: true,
+        dateAdded: 1710000000,
       );
 
       final json = song.toJson();
       expect(json['id'], 101);
       expect(json['playCount'], 12);
       expect(json['isFavorite'], true);
+      expect(json['dateAdded'], 1710000000);
 
       final fromJson = SongModel.fromJson(json);
       expect(fromJson.id, song.id);
@@ -29,6 +31,44 @@ void main() {
       expect(fromJson.duration, song.duration);
       expect(fromJson.playCount, song.playCount);
       expect(fromJson.isFavorite, song.isFavorite);
+      expect(fromJson.dateAdded, 1710000000);
+    });
+
+    test('Sorts songs by latest downloaded dateAdded descending', () {
+      final s1 = SongModel(
+        id: 1,
+        title: 'Old Song',
+        artist: 'Artist',
+        album: 'Album',
+        uri: 'uri1',
+        duration: 100,
+        dateAdded: 1000,
+      );
+      final s2 = SongModel(
+        id: 2,
+        title: 'Newest Downloaded Song',
+        artist: 'Artist',
+        album: 'Album',
+        uri: 'uri2',
+        duration: 100,
+        dateAdded: 3000,
+      );
+      final s3 = SongModel(
+        id: 3,
+        title: 'Middle Song',
+        artist: 'Artist',
+        album: 'Album',
+        uri: 'uri3',
+        duration: 100,
+        dateAdded: 2000,
+      );
+
+      final songs = [s1, s2, s3];
+      songs.sort((a, b) => b.dateAdded.compareTo(a.dateAdded));
+
+      expect(songs.first.title, 'Newest Downloaded Song');
+      expect(songs[1].title, 'Middle Song');
+      expect(songs.last.title, 'Old Song');
     });
   });
 

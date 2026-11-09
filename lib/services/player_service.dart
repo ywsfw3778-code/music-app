@@ -18,10 +18,18 @@ class PlayerService {
 
   Future<void> playSong(SongModel song) async {
     try {
+      await _player.stop();
       if (song.uri.startsWith('http://') || song.uri.startsWith('https://')) {
         await _player.setUrl(song.uri);
+      } else if (song.uri.startsWith('content://')) {
+        await _player.setAudioSource(AudioSource.uri(Uri.parse(song.uri)));
       } else {
-        await _player.setFilePath(song.uri);
+        // Check if file exists, else use AudioSource.uri
+        try {
+          await _player.setFilePath(song.uri);
+        } catch (_) {
+          await _player.setAudioSource(AudioSource.uri(Uri.parse(song.uri)));
+        }
       }
       await _player.play();
     } catch (e) {

@@ -134,18 +134,25 @@ class NowPlayingSheet extends StatelessWidget {
             .clamp(0.0, maxDurationMs);
 
         return ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
             child: Container(
               height: MediaQuery.of(context).size.height * 0.92,
               decoration: BoxDecoration(
-                color: AppColors.background.withValues(alpha: 0.92),
                 borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(32)),
+                    const BorderRadius.vertical(top: Radius.circular(36)),
                 border: Border.all(
-                  color: AppColors.border.withValues(alpha: 0.5),
-                  width: 1,
+                  color: Colors.white.withValues(alpha: 0.22),
+                  width: 1.2,
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.white.withValues(alpha: 0.12),
+                    AppColors.background.withValues(alpha: 0.96),
+                  ],
                 ),
               ),
               child: SafeArea(
@@ -159,7 +166,7 @@ class NowPlayingSheet extends StatelessWidget {
                         width: 48,
                         height: 5,
                         decoration: BoxDecoration(
-                          color: AppColors.textMuted.withValues(alpha: 0.4),
+                          color: Colors.white.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
@@ -173,9 +180,12 @@ class NowPlayingSheet extends StatelessWidget {
                             onTap: () => Navigator.pop(context),
                             child: Container(
                               padding: const EdgeInsets.all(8),
-                              decoration: const BoxDecoration(
-                                color: AppColors.surfaceLight,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.08),
                                 shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                ),
                               ),
                               child: const Icon(
                                 Icons.keyboard_arrow_down_rounded,
@@ -209,9 +219,12 @@ class NowPlayingSheet extends StatelessWidget {
                             onTap: () => _showAddToPlaylistDialog(context, song),
                             child: Container(
                               padding: const EdgeInsets.all(8),
-                              decoration: const BoxDecoration(
-                                color: AppColors.surfaceLight,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.08),
                                 shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                ),
                               ),
                               child: const Icon(
                                 Icons.playlist_add_rounded,
@@ -425,9 +438,12 @@ class NowPlayingSheet extends StatelessWidget {
                             onTap: provider.playPrevious,
                             child: Container(
                               padding: const EdgeInsets.all(12),
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: AppColors.surfaceLight,
+                                color: Colors.white.withValues(alpha: 0.08),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                ),
                               ),
                               child: const Icon(
                                 Icons.skip_previous_rounded,
@@ -479,9 +495,12 @@ class NowPlayingSheet extends StatelessWidget {
                             onTap: provider.playNext,
                             child: Container(
                               padding: const EdgeInsets.all(12),
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: AppColors.surfaceLight,
+                                color: Colors.white.withValues(alpha: 0.08),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                ),
                               ),
                               child: const Icon(
                                 Icons.skip_next_rounded,

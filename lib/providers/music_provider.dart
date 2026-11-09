@@ -49,7 +49,7 @@ class MusicProvider extends ChangeNotifier {
   LoopMode get loopMode => _loopMode;
   List<PlaylistModel> get playlists => _playlists;
 
-  // Most Played List (Sorted strictly by play count)
+  // Most Played List
   List<SongModel> get mostPlayedSongs {
     final list = _allSongs.where((s) => (s.playCount > 0)).toList();
     list.sort((a, b) => b.playCount.compareTo(a.playCount));
@@ -116,11 +116,16 @@ class MusicProvider extends ChangeNotifier {
 
     final scanned = await _scannerService.scanMusic();
 
-    _allSongs = scanned.map((s) {
+    // Map persistent counts & favorites
+    final mapped = scanned.map((s) {
       final count = _playCounts[s.id] ?? s.playCount;
       final isFav = _favoriteIds.contains(s.id);
       return s.copyWith(playCount: count, isFavorite: isFav);
     }).toList();
+
+    // Default Sort: Latest downloaded (dateAdded DESC)
+    mapped.sort((a, b) => b.dateAdded.compareTo(a.dateAdded));
+    _allSongs = mapped;
 
     if (_currentQueue.isEmpty && _allSongs.isNotEmpty) {
       _currentQueue = List.from(_allSongs);
@@ -142,7 +147,6 @@ class MusicProvider extends ChangeNotifier {
     _currentIndex = _currentQueue.indexWhere((s) => s.id == song.id);
     _currentSong = song;
 
-    // Track play count and save
     song.playCount += 1;
     _playCounts[song.id] = song.playCount;
     _storageService.incrementPlayCount(song.id);

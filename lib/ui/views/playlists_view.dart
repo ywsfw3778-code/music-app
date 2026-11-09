@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/playlist_model.dart';
 import '../../providers/music_provider.dart';
 import '../widgets/album_art_widget.dart';
 import '../widgets/interactive_scale_tap.dart';
 
-class PlaylistsView extends StatelessWidget {
+class PlaylistsView extends StatefulWidget {
   const PlaylistsView({super.key});
+
+  @override
+  State<PlaylistsView> createState() => _PlaylistsViewState();
+}
+
+class _PlaylistsViewState extends State<PlaylistsView>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
 
   void _showCreatePlaylistDialog(BuildContext context) {
     final controller = TextEditingController();
@@ -17,7 +25,7 @@ class PlaylistsView extends StatelessWidget {
       builder: (ctx) {
         return AlertDialog(
           backgroundColor: AppColors.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           title: const Text(
             'إنشاء قائمة جديدة',
             style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
@@ -32,7 +40,7 @@ class PlaylistsView extends StatelessWidget {
               filled: true,
               fillColor: AppColors.surfaceLight,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,
               ),
             ),
@@ -46,7 +54,7 @@ class PlaylistsView extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: () {
                 final name = controller.text.trim();
@@ -74,6 +82,8 @@ class PlaylistsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     return Consumer<MusicProvider>(
       builder: (context, provider, _) {
         final playlists = provider.playlists;
@@ -82,6 +92,8 @@ class PlaylistsView extends StatelessWidget {
         return Scaffold(
           backgroundColor: AppColors.background,
           appBar: AppBar(
+            backgroundColor: AppColors.background.withValues(alpha: 0.85),
+            elevation: 0,
             title: const Text(
               'قوائم التشغيل',
               style: TextStyle(
@@ -103,7 +115,7 @@ class PlaylistsView extends StatelessWidget {
             child: CustomScrollView(
               physics: const BouncingScrollPhysics(),
               slivers: [
-                // Create Playlist Action Card
+                // Create Playlist Action Card (Liquid Glass)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12.0),
@@ -112,11 +124,26 @@ class PlaylistsView extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF2E1065), Color(0xFF1E1B4B)],
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.16),
+                            width: 1.2,
                           ),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
+                          gradient: LinearGradient(
+                            colors: [
+                              AppColors.accent.withValues(alpha: 0.22),
+                              Colors.white.withValues(alpha: 0.05),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.accent.withValues(alpha: 0.12),
+                              blurRadius: 18,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
                         child: Row(
                           children: [
@@ -126,6 +153,12 @@ class PlaylistsView extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: AppColors.primary,
                                 borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.primary.withValues(alpha: 0.35),
+                                    blurRadius: 10,
+                                  ),
+                                ],
                               ),
                               child: const Icon(Icons.add_rounded, color: Colors.black, size: 30),
                             ),
@@ -142,8 +175,9 @@ class PlaylistsView extends StatelessWidget {
                                       color: AppColors.textPrimary,
                                     ),
                                   ),
+                                  SizedBox(height: 2),
                                   Text(
-                                    'جمع أغانيك المفضلة في مكان واحد',
+                                    'جمع أغانيك وموسيقاك المفضلة في مكان واحد',
                                     style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                                   ),
                                 ],
@@ -156,16 +190,18 @@ class PlaylistsView extends StatelessWidget {
                   ),
                 ),
 
-                // Built-in Favorites Playlist
+                // Built-in Favorites Playlist (Liquid Glass)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6.0),
-                    child: Material(
-                      color: AppColors.surface,
-                      clipBehavior: Clip.antiAlias,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: const BorderSide(color: AppColors.border),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.14),
+                          width: 1.2,
+                        ),
                       ),
                       child: ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -176,9 +212,15 @@ class PlaylistsView extends StatelessWidget {
                             gradient: const LinearGradient(
                               colors: [Color(0xFFF43F5E), Color(0xFFBE123C)],
                             ),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFF43F5E).withValues(alpha: 0.35),
+                                blurRadius: 10,
+                              ),
+                            ],
                           ),
-                          child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 28),
+                          child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 26),
                         ),
                         title: const Text(
                           'المفضلة ❤️',
@@ -203,7 +245,7 @@ class PlaylistsView extends StatelessWidget {
                   ),
                 ),
 
-                // User Playlists List
+                // User Playlists List (Liquid Glass)
                 if (playlists.isEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
@@ -231,12 +273,14 @@ class PlaylistsView extends StatelessWidget {
 
                         return Padding(
                           padding: const EdgeInsets.symmetric(vertical: 6.0),
-                          child: Material(
-                            color: AppColors.surface,
-                            clipBehavior: Clip.antiAlias,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              side: const BorderSide(color: AppColors.border),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.12),
+                                width: 1.2,
+                              ),
                             ),
                             child: ListTile(
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -247,7 +291,7 @@ class PlaylistsView extends StatelessWidget {
                                   gradient: const LinearGradient(
                                     colors: [Color(0xFF6366F1), Color(0xFF4338CA)],
                                   ),
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(14),
                                 ),
                                 child: const Icon(Icons.queue_music_rounded, color: Colors.white, size: 26),
                               ),
@@ -270,18 +314,14 @@ class PlaylistsView extends StatelessWidget {
                               onTap: () => _openPlaylistDetails(context, pl),
                             ),
                           ),
-                        ).animate().fade().slideY(
-                              begin: 0.1,
-                              end: 0,
-                              delay: Duration(milliseconds: 40 * index),
-                            );
+                        );
                       },
                       childCount: playlists.length,
                     ),
                   ),
 
                 const SliverToBoxAdapter(
-                  child: SizedBox(height: 120),
+                  child: SizedBox(height: 130),
                 ),
               ],
             ),
@@ -306,6 +346,8 @@ class PlaylistDetailScreen extends StatelessWidget {
         return Scaffold(
           backgroundColor: AppColors.background,
           appBar: AppBar(
+            backgroundColor: AppColors.background.withValues(alpha: 0.85),
+            elevation: 0,
             title: Text(playlist.name),
             actions: [
               if (songs.isNotEmpty)
@@ -329,21 +371,30 @@ class PlaylistDetailScreen extends StatelessWidget {
                   itemCount: songs.length,
                   itemBuilder: (context, index) {
                     final song = songs[index];
-                    return Material(
-                      color: Colors.transparent,
-                      child: ListTile(
-                        leading: AlbumArtWidget(song: song, size: 48, borderRadius: 10),
-                        title: Text(
-                          song.title,
-                          maxLines: 1,
-                          style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.12),
+                          ),
                         ),
-                        subtitle: Text(song.artist, style: const TextStyle(color: AppColors.textSecondary)),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.remove_circle_outline_rounded, color: AppColors.textMuted),
-                          onPressed: () => provider.toggleSongInPlaylist(playlist.id, song.id),
+                        child: ListTile(
+                          leading: AlbumArtWidget(song: song, size: 48, borderRadius: 10),
+                          title: Text(
+                            song.title,
+                            maxLines: 1,
+                            style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Text(song.artist, style: const TextStyle(color: AppColors.textSecondary)),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.remove_circle_outline_rounded, color: AppColors.textMuted),
+                            onPressed: () => provider.toggleSongInPlaylist(playlist.id, song.id),
+                          ),
+                          onTap: () => provider.playSong(song, queue: songs),
                         ),
-                        onTap: () => provider.playSong(song, queue: songs),
                       ),
                     );
                   },
