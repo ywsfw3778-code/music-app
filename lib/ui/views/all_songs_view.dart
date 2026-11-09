@@ -143,7 +143,7 @@ class _AllSongsViewState extends State<AllSongsView>
                     ),
                   ],
                 ),
-                const Divider(color: AppColors.border, height: 28),
+                Divider(color: AppColors.border, height: 28),
                 ListTile(
                   leading: Icon(
                     song.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
@@ -159,7 +159,7 @@ class _AllSongsViewState extends State<AllSongsView>
                   },
                 ),
                 ListTile(
-                  leading: const Icon(Icons.playlist_add_rounded, color: AppColors.primary),
+                  leading: Icon(Icons.playlist_add_rounded, color: AppColors.primary),
                   title: const Text('إضافة إلى قائمة تشغيل', style: TextStyle(color: AppColors.textPrimary)),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -217,7 +217,7 @@ class _AllSongsViewState extends State<AllSongsView>
                       final pl = provider.playlists[index];
                       final isAdded = pl.songIds.contains(song.id);
                       return ListTile(
-                        leading: const Icon(Icons.queue_music_rounded, color: AppColors.primary),
+                        leading: Icon(Icons.queue_music_rounded, color: AppColors.primary),
                         title: Text(pl.name, style: const TextStyle(color: AppColors.textPrimary)),
                         trailing: Icon(
                           isAdded ? Icons.check_circle_rounded : Icons.add_circle_outline_rounded,
@@ -350,9 +350,9 @@ class _AllSongsViewState extends State<AllSongsView>
                     ),
                     Row(
                       children: [
-                        const Icon(Icons.check_circle_outline_rounded, color: AppColors.primary, size: 14),
+                        Icon(Icons.check_circle_outline_rounded, color: AppColors.primary, size: 14),
                         const SizedBox(width: 4),
-                        const Text(
+                        Text(
                           'أغاني وموسيقى فقط',
                           style: TextStyle(
                             color: AppColors.primary,
@@ -461,7 +461,7 @@ class _AllSongsViewState extends State<AllSongsView>
                                       const Text(' • ', style: TextStyle(color: AppColors.textMuted)),
                                       Text(
                                         '${song.playCount}▶',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           color: AppColors.primary,
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,

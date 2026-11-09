@@ -235,7 +235,7 @@ class _FloatingMiniPlayerState extends State<FloatingMiniPlayer>
                               width: 38,
                               height: 38,
                               decoration: BoxDecoration(
-                                color: AppColors.primary,
+                                gradient: LinearGradient(colors: AppColors.primaryGradient),
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
@@ -250,7 +250,7 @@ class _FloatingMiniPlayerState extends State<FloatingMiniPlayer>
                                   provider.isPlaying
                                       ? Icons.pause_rounded
                                       : Icons.play_arrow_rounded,
-                                  color: Colors.black,
+                                  color: AppColors.onPrimary,
                                   size: 24,
                                 ),
                               ),
@@ -282,7 +282,7 @@ class _FloatingMiniPlayerState extends State<FloatingMiniPlayer>
                           child: LinearProgressIndicator(
                             value: progress,
                             backgroundColor: Colors.white.withValues(alpha: 0.1),
-                            valueColor: const AlwaysStoppedAnimation<Color>(
+                            valueColor: AlwaysStoppedAnimation<Color>(
                               AppColors.primary,
                             ),
                           ),

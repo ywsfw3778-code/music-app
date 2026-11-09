@@ -70,7 +70,7 @@ class NowPlayingSheet extends StatelessWidget {
                             color: AppColors.surfaceLight,
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.queue_music_rounded,
                             color: AppColors.primary,
                           ),
@@ -207,7 +207,7 @@ class NowPlayingSheet extends StatelessWidget {
                               if (song.playCount > 0)
                                 Text(
                                   'تم الاستماع ${song.playCount} مرة',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: AppColors.primary,
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
@@ -461,11 +461,8 @@ class NowPlayingSheet extends StatelessWidget {
                               height: 72,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    AppColors.primary,
-                                    Color(0xFF16A34A),
-                                  ],
+                                gradient: LinearGradient(
+                                  colors: AppColors.primaryGradient,
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
@@ -483,7 +480,7 @@ class NowPlayingSheet extends StatelessWidget {
                                   provider.isPlaying
                                       ? Icons.pause_rounded
                                       : Icons.play_arrow_rounded,
-                                  color: Colors.black,
+                                  color: AppColors.onPrimary,
                                   size: 40,
                                 ),
                               ),

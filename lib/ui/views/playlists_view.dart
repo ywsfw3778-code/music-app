@@ -104,7 +104,7 @@ class _PlaylistsViewState extends State<PlaylistsView>
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.add_rounded, color: AppColors.primary, size: 28),
+                icon: Icon(Icons.add_rounded, color: AppColors.primary, size: 28),
                 onPressed: () => _showCreatePlaylistDialog(context),
                 tooltip: 'إنشاء قائمة',
               ),
@@ -352,7 +352,7 @@ class PlaylistDetailScreen extends StatelessWidget {
             actions: [
               if (songs.isNotEmpty)
                 IconButton(
-                  icon: const Icon(Icons.play_circle_fill_rounded, color: AppColors.primary, size: 36),
+                  icon: Icon(Icons.play_circle_fill_rounded, color: AppColors.primary, size: 36),
                   onPressed: () => provider.playSong(songs.first, queue: songs),
                   tooltip: 'تشغيل الكل',
                 ),

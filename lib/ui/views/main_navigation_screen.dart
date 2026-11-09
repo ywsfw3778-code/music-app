@@ -1,7 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
+import '../../providers/music_provider.dart';
 import '../widgets/floating_mini_player.dart';
 import 'all_songs_view.dart';
 import 'home_view.dart';
@@ -64,234 +66,235 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   Widget build(BuildContext context) {
     final isRtl = Directionality.of(context) == TextDirection.rtl;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Stack(
-        children: [
-          // Ambient Liquid Glowing Mesh (Liquid Glass visual foundation)
-          Positioned(
-            top: -60,
-            right: -60,
-            child: IgnorePointer(
-              child: Container(
-                width: 320,
-                height: 320,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.primary.withValues(alpha: 0.16),
-                      AppColors.primary.withValues(alpha: 0.0),
-                    ],
+    return Consumer<MusicProvider>(
+      builder: (context, provider, _) {
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          body: Stack(
+            children: [
+              // Ambient Liquid Glowing Mesh (Liquid Glass visual foundation)
+              Positioned(
+                top: -60,
+                right: -60,
+                child: IgnorePointer(
+                  child: Container(
+                    width: 340,
+                    height: 340,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          AppColors.ambientOrb1.withValues(alpha: 0.22),
+                          AppColors.ambientOrb1.withValues(alpha: 0.0),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-          Positioned(
-            bottom: 80,
-            left: -80,
-            child: IgnorePointer(
-              child: Container(
-                width: 340,
-                height: 340,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.accent.withValues(alpha: 0.15),
-                      AppColors.accent.withValues(alpha: 0.0),
-                    ],
+              Positioned(
+                bottom: 80,
+                left: -80,
+                child: IgnorePointer(
+                  child: Container(
+                    width: 360,
+                    height: 360,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          AppColors.ambientOrb2.withValues(alpha: 0.20),
+                          AppColors.ambientOrb2.withValues(alpha: 0.0),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-          Positioned(
-            top: MediaQuery.of(context).size.height * 0.45,
-            right: -80,
-            child: IgnorePointer(
-              child: Container(
-                width: 260,
-                height: 260,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.accentCyan.withValues(alpha: 0.09),
-                      AppColors.accentCyan.withValues(alpha: 0.0),
-                    ],
+              Positioned(
+                top: MediaQuery.of(context).size.height * 0.45,
+                right: -80,
+                child: IgnorePointer(
+                  child: Container(
+                    width: 260,
+                    height: 260,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          AppColors.accent.withValues(alpha: 0.12),
+                          AppColors.accent.withValues(alpha: 0.0),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
 
-          // Smooth PageView
-          PageView(
-            controller: _pageController,
-            physics: const BouncingScrollPhysics(),
-            onPageChanged: (index) {
-              if (_currentIndex != index) {
-                setState(() => _currentIndex = index);
-                HapticFeedback.selectionClick();
-              }
-            },
-            children: _screens,
-          ),
+              // Smooth PageView
+              PageView(
+                controller: _pageController,
+                physics: const BouncingScrollPhysics(),
+                onPageChanged: (index) {
+                  if (_currentIndex != index) {
+                    setState(() => _currentIndex = index);
+                    HapticFeedback.selectionClick();
+                  }
+                },
+                children: _screens,
+              ),
 
-          // Floating Player + Liquid Glass Bottom Dock
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Floating Mini Player with Liquid Glass
-                const FloatingMiniPlayer(),
+              // Floating Player + Liquid Glass Bottom Dock
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Floating Mini Player with Liquid Glass
+                    const FloatingMiniPlayer(),
 
-                // Liquid Glass Hold & Drag Dock
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final totalWidth = constraints.maxWidth;
-                      final tabWidth = (totalWidth - 12) / 3;
+                    // Liquid Glass Hold & Drag Dock
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final totalWidth = constraints.maxWidth;
+                          final tabWidth = (totalWidth - 12) / 3;
 
-                      return GestureDetector(
-                        onPanDown: (details) {
-                          setState(() => _isDragging = true);
-                          _handleDragUpdate(details.localPosition, totalWidth, isRtl);
-                        },
-                        onPanUpdate: (details) {
-                          _handleDragUpdate(details.localPosition, totalWidth, isRtl);
-                        },
-                        onPanEnd: (_) => setState(() => _isDragging = false),
-                        onPanCancel: () => setState(() => _isDragging = false),
-                        child: AnimatedScale(
-                          scale: _isDragging ? 1.02 : 1.0,
-                          duration: const Duration(milliseconds: 180),
-                          curve: Curves.easeOutCubic,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(36),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primary.withValues(alpha: _isDragging ? 0.25 : 0.10),
-                                  blurRadius: _isDragging ? 28 : 20,
-                                  offset: const Offset(0, 8),
-                                ),
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.65),
-                                  blurRadius: 26,
-                                  offset: const Offset(0, 10),
-                                ),
-                              ],
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(36),
-                              child: BackdropFilter(
-                                filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
-                                child: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.08),
-                                    borderRadius: BorderRadius.circular(36),
-                                    border: Border.all(
-                                      color: _isDragging
-                                          ? AppColors.primary.withValues(alpha: 0.6)
-                                          : Colors.white.withValues(alpha: 0.22),
-                                      width: 1.3,
+                          return GestureDetector(
+                            onPanDown: (details) {
+                              setState(() => _isDragging = true);
+                              _handleDragUpdate(details.localPosition, totalWidth, isRtl);
+                            },
+                            onPanUpdate: (details) {
+                              _handleDragUpdate(details.localPosition, totalWidth, isRtl);
+                            },
+                            onPanEnd: (_) => setState(() => _isDragging = false),
+                            onPanCancel: () => setState(() => _isDragging = false),
+                            child: AnimatedScale(
+                              scale: _isDragging ? 1.02 : 1.0,
+                              duration: const Duration(milliseconds: 180),
+                              curve: Curves.easeOutCubic,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(36),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.primary.withValues(alpha: _isDragging ? 0.35 : 0.14),
+                                      blurRadius: _isDragging ? 28 : 20,
+                                      offset: const Offset(0, 8),
                                     ),
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        Colors.white.withValues(alpha: 0.16),
-                                        AppColors.surface.withValues(alpha: 0.70),
-                                      ],
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.65),
+                                      blurRadius: 26,
+                                      offset: const Offset(0, 10),
                                     ),
-                                  ),
-                                  child: Stack(
-                                    children: [
-                                      // Fluid Sliding Capsule Indicator
-                                      AnimatedPositioned(
-                                        duration: const Duration(milliseconds: 280),
-                                        curve: Curves.easeOutBack,
-                                        left: isRtl
-                                            ? null
-                                            : _currentIndex * tabWidth,
-                                        right: isRtl
-                                            ? _currentIndex * tabWidth
-                                            : null,
-                                        top: 0,
-                                        bottom: 0,
-                                        width: tabWidth,
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(28),
-                                            gradient: const LinearGradient(
-                                              colors: [
-                                                AppColors.primary,
-                                                Color(0xFF34D399),
-                                              ],
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
+                                  ],
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(36),
+                                  child: BackdropFilter(
+                                    filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.08),
+                                        borderRadius: BorderRadius.circular(36),
+                                        border: Border.all(
+                                          color: _isDragging
+                                              ? AppColors.primary.withValues(alpha: 0.7)
+                                              : Colors.white.withValues(alpha: 0.22),
+                                          width: 1.3,
+                                        ),
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            Colors.white.withValues(alpha: 0.16),
+                                            AppColors.surface.withValues(alpha: 0.70),
+                                          ],
+                                        ),
+                                      ),
+                                      child: Stack(
+                                        children: [
+                                          // Fluid Sliding Capsule Indicator
+                                          AnimatedPositioned(
+                                            duration: const Duration(milliseconds: 280),
+                                            curve: Curves.easeOutBack,
+                                            left: isRtl
+                                                ? null
+                                                : _currentIndex * tabWidth,
+                                            right: isRtl
+                                                ? _currentIndex * tabWidth
+                                                : null,
+                                            top: 0,
+                                            bottom: 0,
+                                            width: tabWidth,
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                borderRadius: BorderRadius.circular(28),
+                                                gradient: LinearGradient(
+                                                  colors: AppColors.primaryGradient,
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                ),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: AppColors.primary.withValues(alpha: 0.45),
+                                                    blurRadius: 14,
+                                                    offset: const Offset(0, 3),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: AppColors.primary.withValues(alpha: 0.45),
-                                                blurRadius: 14,
-                                                offset: const Offset(0, 3),
+                                          ),
+
+                                          // The 3 Tabs
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: _buildTabItem(
+                                                  index: 0,
+                                                  icon: Icons.home_rounded,
+                                                  label: 'الرئيسية',
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: _buildTabItem(
+                                                  index: 1,
+                                                  icon: Icons.music_note_rounded,
+                                                  label: 'الأغاني',
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: _buildTabItem(
+                                                  index: 2,
+                                                  icon: Icons.queue_music_rounded,
+                                                  label: 'القوائم',
+                                                ),
                                               ),
                                             ],
                                           ),
-                                        ),
-                                      ),
-
-                                      // The 3 Tabs
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: _buildTabItem(
-                                              index: 0,
-                                              icon: Icons.home_rounded,
-                                              label: 'الرئيسية',
-                                            ),
-                                          ),
-                                          Expanded(
-                                            child: _buildTabItem(
-                                              index: 1,
-                                              icon: Icons.music_note_rounded,
-                                              label: 'الأغاني',
-                                            ),
-                                          ),
-                                          Expanded(
-                                            child: _buildTabItem(
-                                              index: 2,
-                                              icon: Icons.queue_music_rounded,
-                                              label: 'القوائم',
-                                            ),
-                                          ),
                                         ],
                                       ),
-                                    ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -308,7 +311,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         child: AnimatedDefaultTextStyle(
           duration: const Duration(milliseconds: 200),
           style: TextStyle(
-            color: isSelected ? Colors.black : Colors.white.withValues(alpha: 0.7),
+            color: isSelected ? AppColors.onPrimary : Colors.white.withValues(alpha: 0.7),
             fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
             fontSize: 13,
           ),
@@ -318,7 +321,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             children: [
               Icon(
                 icon,
-                color: isSelected ? Colors.black : Colors.white.withValues(alpha: 0.7),
+                color: isSelected ? AppColors.onPrimary : Colors.white.withValues(alpha: 0.7),
                 size: 20,
               ),
               if (isSelected) ...[

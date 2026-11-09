@@ -12,11 +12,11 @@ class AppTheme {
       fontFamily: baseFont.fontFamily,
       scaffoldBackgroundColor: AppColors.background,
       primaryColor: AppColors.primary,
-      colorScheme: const ColorScheme.dark(
+      colorScheme: ColorScheme.dark(
         primary: AppColors.primary,
         secondary: AppColors.accent,
         surface: AppColors.surface,
-        onPrimary: Colors.black,
+        onPrimary: AppColors.onPrimary,
         onSurface: AppColors.textPrimary,
       ),
       appBarTheme: const AppBarTheme(
@@ -31,7 +31,7 @@ class AppTheme {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppColors.border, width: 1),
+          side: BorderSide(color: AppColors.border, width: 1),
         ),
       ),
     );

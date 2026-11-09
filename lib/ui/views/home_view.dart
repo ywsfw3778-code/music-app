@@ -31,7 +31,7 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
     return Consumer<MusicProvider>(
       builder: (context, provider, _) {
         if (provider.isLoading) {
-          return const Center(
+          return Center(
             child: CircularProgressIndicator(color: AppColors.primary),
           );
         }
@@ -58,8 +58,8 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                       width: 38,
                       height: 38,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [AppColors.primary, AppColors.accent],
+                        gradient: LinearGradient(
+                          colors: AppColors.primaryGradient,
                         ),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
@@ -70,8 +70,8 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                           ),
                         ],
                       ),
-                      child: const Center(
-                        child: Icon(Icons.graphic_eq_rounded, color: Colors.black, size: 22),
+                      child: Center(
+                        child: Icon(Icons.graphic_eq_rounded, color: AppColors.onPrimary, size: 22),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -102,6 +102,26 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 12),
+
+                      // 3-Theme Live Switcher Capsule
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.12),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            _buildThemePill(provider, AppThemeStyle.visionOS, '✨ VisionOS'),
+                            _buildThemePill(provider, AppThemeStyle.cyberNeon, '⚡ Cyber Neon'),
+                            _buildThemePill(provider, AppThemeStyle.titanium, '💎 Titanium'),
+                          ],
+                        ),
+                      ),
 
                       // Liquid Glass Status Banner
                       Container(
@@ -134,8 +154,8 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                gradient: const LinearGradient(
-                                  colors: [AppColors.primary, Color(0xFF10B981)],
+                                gradient: LinearGradient(
+                                  colors: AppColors.primaryGradient,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
@@ -205,7 +225,7 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                                       color: AppColors.primary.withValues(alpha: 0.3),
                                     ),
                                   ),
-                                  child: const Text(
+                                  child: Text(
                                     '🔥 TOP',
                                     style: TextStyle(
                                       color: AppColors.primary,
@@ -302,7 +322,7 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                                                 child: Row(
                                                   mainAxisSize: MainAxisSize.min,
                                                   children: [
-                                                    const Icon(Icons.play_arrow_rounded, color: AppColors.primary, size: 12),
+                                                    Icon(Icons.play_arrow_rounded, color: AppColors.primary, size: 12),
                                                     Text(
                                                       '${song.playCount}',
                                                       style: const TextStyle(
@@ -525,6 +545,48 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
           ),
         );
       },
+    );
+  }
+
+  Widget _buildThemePill(MusicProvider provider, AppThemeStyle style, String label) {
+    final isSelected = provider.themeStyle == style;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => provider.setThemeStyle(style),
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            gradient: isSelected
+                ? LinearGradient(colors: AppColors.primaryGradient)
+                : null,
+            color: isSelected ? null : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.35),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? AppColors.onPrimary : Colors.white.withValues(alpha: 0.7),
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

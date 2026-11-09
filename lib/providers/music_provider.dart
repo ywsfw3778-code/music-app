@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
+import '../core/constants/app_colors.dart';
 import '../models/song_model.dart';
 import '../models/playlist_model.dart';
 import '../services/audio_scanner_service.dart';
@@ -27,6 +28,7 @@ class MusicProvider extends ChangeNotifier {
   List<PlaylistModel> _playlists = [];
   Set<int> _favoriteIds = {};
   Map<int, int> _playCounts = {};
+  AppThemeStyle _themeStyle = AppThemeStyle.visionOS;
 
   MusicProvider(
     this._storageService, {
@@ -48,6 +50,13 @@ class MusicProvider extends ChangeNotifier {
   bool get isShuffle => _isShuffle;
   LoopMode get loopMode => _loopMode;
   List<PlaylistModel> get playlists => _playlists;
+  AppThemeStyle get themeStyle => _themeStyle;
+
+  void setThemeStyle(AppThemeStyle style) {
+    _themeStyle = style;
+    AppColors.currentStyle = style;
+    notifyListeners();
+  }
 
   // Most Played List
   List<SongModel> get mostPlayedSongs {
