@@ -59,7 +59,7 @@ class AudioScannerService {
     List<SongModel> songs = [];
 
     try {
-      if (Platform.isAndroid || Platform.isIOS) {
+      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
         final hasPermission = await requestPermissions();
         if (!hasPermission) {
           debugPrint('Storage/Audio permission not granted');
@@ -95,7 +95,7 @@ class AudioScannerService {
             );
           }
         }
-      } else if (Platform.isWindows) {
+      } else if (!kIsWeb && Platform.isWindows) {
         songs = await _scanWindowsMusic();
       }
     } catch (e) {
