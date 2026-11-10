@@ -55,8 +55,8 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                 title: Row(
                   children: [
                     Container(
-                      width: 38,
-                      height: 38,
+                      width: 36,
+                      height: 36,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: AppColors.primaryGradient,
@@ -71,15 +71,15 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                         ],
                       ),
                       child: Center(
-                        child: Icon(Icons.graphic_eq_rounded, color: AppColors.onPrimary, size: 22),
+                        child: Icon(Icons.graphic_eq_rounded, color: AppColors.onPrimary, size: 20),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     const Text(
                       'Echo Music',
                       style: TextStyle(
                         fontWeight: FontWeight.w900,
-                        fontSize: 22,
+                        fontSize: 21,
                         letterSpacing: -0.5,
                         color: AppColors.textPrimary,
                       ),
@@ -97,11 +97,11 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
 
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 18.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
 
                       // 3-Theme Live Switcher Capsule
                       Container(
@@ -109,7 +109,7 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(18),
                           border: Border.all(
                             color: Colors.white.withValues(alpha: 0.12),
                           ),
@@ -123,82 +123,118 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                         ),
                       ),
 
-                      // Liquid Glass Status Banner
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.16),
-                            width: 1.2,
-                          ),
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Colors.white.withValues(alpha: 0.10),
-                              AppColors.surface.withValues(alpha: 0.70),
+                      // Luxury Hero Card (Featured Music / Shuffle)
+                      InteractiveScaleTap(
+                        onTap: () {
+                          if (allSongs.isNotEmpty) {
+                            if (!provider.isShuffle) provider.toggleShuffle();
+                            provider.playSong(allSongs.first, queue: allSongs);
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.20),
+                              width: 1.3,
+                            ),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                AppColors.primary.withValues(alpha: 0.28),
+                                AppColors.surface.withValues(alpha: 0.85),
+                              ],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.22),
+                                blurRadius: 28,
+                                offset: const Offset(0, 8),
+                              ),
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.5),
+                                blurRadius: 20,
+                                offset: const Offset(0, 4),
+                              ),
                             ],
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.08),
-                              blurRadius: 16,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  colors: AppColors.primaryGradient,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                          color: Colors.white.withValues(alpha: 0.15),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        '🎧 Hi-Res Audio • تجربة نقية',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    const Text(
+                                      'تشغيل عشوائي لكل أغانيك',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w900,
+                                        color: AppColors.textPrimary,
+                                        letterSpacing: -0.3,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${allSongs.length} أغنية وتراك جاهزة للاستماع',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary.withValues(alpha: 0.9),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.primary.withValues(alpha: 0.35),
-                                    blurRadius: 8,
+                              ),
+                              Container(
+                                width: 54,
+                                height: 54,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: LinearGradient(
+                                    colors: AppColors.primaryGradient,
                                   ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.headphones_rounded,
-                                color: Colors.black,
-                                size: 22,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'أغانيك صافية ومفرزة',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                      color: AppColors.textPrimary,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.primary.withValues(alpha: 0.5),
+                                      blurRadius: 16,
+                                      offset: const Offset(0, 4),
                                     ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Icon(
+                                    Icons.play_arrow_rounded,
+                                    color: AppColors.onPrimary,
+                                    size: 32,
                                   ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    'تم فحص ${allSongs.length} أغنية • بدون ريكوردات أو واتساب',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.textSecondary.withValues(alpha: 0.9),
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 28),
 
                       // Section 1: Most Played 🔥 (الأكثر استماعاً)
                       if (mostPlayed.isNotEmpty) ...[
@@ -267,15 +303,23 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                                     padding: const EdgeInsets.all(10),
                                     decoration: BoxDecoration(
                                       color: isCurrent
-                                          ? AppColors.primary.withValues(alpha: 0.15)
+                                          ? AppColors.primary.withValues(alpha: 0.18)
                                           : Colors.white.withValues(alpha: 0.05),
-                                      borderRadius: BorderRadius.circular(20),
+                                      borderRadius: BorderRadius.circular(22),
                                       border: Border.all(
                                         color: isCurrent
                                             ? AppColors.primary
                                             : Colors.white.withValues(alpha: 0.14),
-                                        width: isCurrent ? 1.5 : 1,
+                                        width: isCurrent ? 1.6 : 1,
                                       ),
+                                      boxShadow: isCurrent
+                                          ? [
+                                              BoxShadow(
+                                                color: AppColors.primary.withValues(alpha: 0.3),
+                                                blurRadius: 16,
+                                              ),
+                                            ]
+                                          : null,
                                     ),
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,7 +329,7 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                                             AlbumArtWidget(
                                               song: song,
                                               size: 122,
-                                              borderRadius: 14,
+                                              borderRadius: 16,
                                             ),
                                             // Rank Badge
                                             Positioned(
@@ -366,7 +410,7 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                             },
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 28),
                       ],
 
                       // Section 2: Quick Play Grid (Liquid Glass Tiles)
@@ -400,11 +444,11 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                                 color: isCurrent
                                     ? AppColors.primary.withValues(alpha: 0.16)
                                     : Colors.white.withValues(alpha: 0.05),
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
                                   color: isCurrent
                                       ? AppColors.primary
-                                      : Colors.white.withValues(alpha: 0.12),
+                                      : Colors.white.withValues(alpha: 0.14),
                                   width: isCurrent ? 1.5 : 1,
                                 ),
                               ),
@@ -413,7 +457,7 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                                   AlbumArtWidget(
                                     song: song,
                                     size: 52,
-                                    borderRadius: 12,
+                                    borderRadius: 14,
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
@@ -429,8 +473,8 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                                     ),
                                   ),
                                   if (isCurrent && provider.isPlaying)
-                                    const Padding(
-                                      padding: EdgeInsets.symmetric(horizontal: 8.0),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
                                       child: SoundWaveVisualizer(
                                         isPlaying: true,
                                         barCount: 3,
@@ -497,7 +541,7 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                                       AlbumArtWidget(
                                         song: song,
                                         size: 46,
-                                        borderRadius: 10,
+                                        borderRadius: 12,
                                       ),
                                       const SizedBox(width: 12),
                                       Expanded(
@@ -564,7 +608,7 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                 ? LinearGradient(colors: AppColors.primaryGradient)
                 : null,
             color: isSelected ? null : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
@@ -580,7 +624,7 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
               label,
               style: TextStyle(
                 color: isSelected ? AppColors.onPrimary : Colors.white.withValues(alpha: 0.7),
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
                 fontSize: 12,
               ),
             ),

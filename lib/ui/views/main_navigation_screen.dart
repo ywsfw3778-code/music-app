@@ -313,7 +313,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           style: TextStyle(
             color: isSelected ? AppColors.onPrimary : Colors.white.withValues(alpha: 0.7),
             fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
-            fontSize: 13,
+            fontSize: 12,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -322,11 +322,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               Icon(
                 icon,
                 color: isSelected ? AppColors.onPrimary : Colors.white.withValues(alpha: 0.7),
-                size: 20,
+                size: 18,
               ),
               if (isSelected) ...[
-                const SizedBox(width: 6),
-                Text(label),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ],
           ),

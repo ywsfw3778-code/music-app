@@ -4,6 +4,7 @@ import '../../core/constants/app_colors.dart';
 import '../../models/song_model.dart';
 import '../../providers/music_provider.dart';
 import '../widgets/album_art_widget.dart';
+import '../widgets/interactive_scale_tap.dart';
 import '../widgets/sound_wave_visualizer.dart';
 
 enum SongSortOption { dateAdded, title, artist, duration, playCount }
@@ -392,87 +393,103 @@ class _AllSongsViewState extends State<AllSongsView>
 
                           return Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                            child: Material(
-                              color: isCurrent
-                                  ? AppColors.primary.withValues(alpha: 0.15)
-                                  : Colors.white.withValues(alpha: 0.05),
-                              clipBehavior: Clip.antiAlias,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                side: BorderSide(
+                            child: InteractiveScaleTap(
+                              onTap: () => provider.playSong(song, queue: songs),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(18),
                                   color: isCurrent
-                                      ? AppColors.primary
-                                      : Colors.white.withValues(alpha: 0.12),
-                                  width: isCurrent ? 1.5 : 1,
-                                ),
-                              ),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                leading: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    AlbumArtWidget(
-                                      song: song,
-                                      size: 48,
-                                      borderRadius: 12,
-                                    ),
-                                    if (isCurrent && provider.isPlaying)
-                                      Container(
-                                        width: 48,
-                                        height: 48,
-                                        decoration: BoxDecoration(
-                                          color: Colors.black.withValues(alpha: 0.55),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: const Center(
-                                          child: SoundWaveVisualizer(
-                                            isPlaying: true,
-                                            barCount: 3,
-                                            maxHeight: 16,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                title: Text(
-                                  song.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: isCurrent ? AppColors.primary : AppColors.textPrimary,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
+                                      ? AppColors.primary.withValues(alpha: 0.18)
+                                      : Colors.white.withValues(alpha: 0.05),
+                                  border: Border.all(
+                                    color: isCurrent
+                                        ? AppColors.primary
+                                        : Colors.white.withValues(alpha: 0.12),
+                                    width: isCurrent ? 1.6 : 1,
                                   ),
+                                  boxShadow: isCurrent
+                                      ? [
+                                          BoxShadow(
+                                            color: AppColors.primary.withValues(alpha: 0.25),
+                                            blurRadius: 14,
+                                          ),
+                                        ]
+                                      : null,
                                 ),
-                                subtitle: Row(
+                                child: Row(
                                   children: [
-                                    Flexible(
-                                      child: Text(
-                                        song.artist,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: AppColors.textSecondary,
-                                          fontSize: 12,
+                                    Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        AlbumArtWidget(
+                                          song: song,
+                                          size: 48,
+                                          borderRadius: 14,
                                         ),
+                                        if (isCurrent && provider.isPlaying)
+                                          Container(
+                                            width: 48,
+                                            height: 48,
+                                            decoration: BoxDecoration(
+                                              color: Colors.black.withValues(alpha: 0.55),
+                                              borderRadius: BorderRadius.circular(14),
+                                            ),
+                                            child: const Center(
+                                              child: SoundWaveVisualizer(
+                                                isPlaying: true,
+                                                barCount: 3,
+                                                maxHeight: 16,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            song.title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: isCurrent ? AppColors.primary : AppColors.textPrimary,
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Row(
+                                            children: [
+                                              Flexible(
+                                                child: Text(
+                                                  song.artist,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    color: AppColors.textSecondary,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (song.playCount > 0) ...[
+                                                const Text(' • ', style: TextStyle(color: AppColors.textMuted)),
+                                                Text(
+                                                  '${song.playCount}▶',
+                                                  style: TextStyle(
+                                                    color: AppColors.primary,
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    if (song.playCount > 0) ...[
-                                      const Text(' • ', style: TextStyle(color: AppColors.textMuted)),
-                                      Text(
-                                        '${song.playCount}▶',
-                                        style: TextStyle(
-                                          color: AppColors.primary,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
                                     Text(
                                       _formatDuration(song.duration),
                                       style: const TextStyle(
@@ -487,7 +504,6 @@ class _AllSongsViewState extends State<AllSongsView>
                                     ),
                                   ],
                                 ),
-                                onTap: () => provider.playSong(song, queue: songs),
                               ),
                             ),
                           );
