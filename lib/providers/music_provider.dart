@@ -52,6 +52,19 @@ class MusicProvider extends ChangeNotifier {
   List<PlaylistModel> get playlists => _playlists;
   AppThemeStyle get themeStyle => _themeStyle;
 
+  bool get crossfadeEnabled => _playerService.crossfadeEnabled;
+  Duration get crossfadeDuration => _playerService.crossfadeDuration;
+
+  void setCrossfadeEnabled(bool enabled) {
+    _playerService.setCrossfadeEnabled(enabled);
+    notifyListeners();
+  }
+
+  void setCrossfadeDuration(Duration duration) {
+    _playerService.setCrossfadeDuration(duration);
+    notifyListeners();
+  }
+
   void setThemeStyle(AppThemeStyle style) {
     _themeStyle = style;
     AppColors.currentStyle = style;
@@ -117,6 +130,14 @@ class MusicProvider extends ChangeNotifier {
         notifyListeners();
       }
     });
+
+    _playerService.onNearEnd = () {
+      if (_loopMode == LoopMode.one && _currentSong != null) {
+        playSong(_currentSong!);
+      } else {
+        playNext();
+      }
+    };
   }
 
   Future<void> refreshSongs() async {
@@ -143,6 +164,21 @@ class MusicProvider extends ChangeNotifier {
     }
 
     _isLoading = false;
+    notifyListeners();
+  }
+
+  /// Prepends a newly downloaded or added song directly to the top of the list and queue (newest-first).
+  void prependSong(SongModel song) {
+    _allSongs.removeWhere((s) => s.id == song.id || s.uri == song.uri);
+    _currentQueue.removeWhere((s) => s.id == song.id || s.uri == song.uri);
+
+    _allSongs.insert(0, song);
+    _currentQueue.insert(0, song);
+
+    if (_currentSong != null) {
+      _currentIndex = _currentQueue.indexWhere((s) => s.id == _currentSong!.id);
+    }
+
     notifyListeners();
   }
 
@@ -218,6 +254,10 @@ class MusicProvider extends ChangeNotifier {
   }
 
   void _onSongCompleted() {
+    if (_playerService.isTransitioning) {
+      // Transition already underway; ignore outgoing track completion event
+      return;
+    }
     if (_loopMode == LoopMode.one && _currentSong != null) {
       playSong(_currentSong!);
     } else {

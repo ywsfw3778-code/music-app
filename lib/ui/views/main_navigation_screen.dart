@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_svg_icons.dart';
+import '../../core/theme/app_theme.dart';
 import '../../providers/music_provider.dart';
+import '../widgets/app_svg_icon.dart';
 import '../widgets/floating_mini_player.dart';
 import 'all_songs_view.dart';
 import 'home_view.dart';
@@ -68,70 +71,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
     return Consumer<MusicProvider>(
       builder: (context, provider, _) {
+        final song = provider.currentSong;
+        final accentColor = DynamicPalette.getColor(song);
+
         return Scaffold(
-          backgroundColor: AppColors.background,
+          backgroundColor: AppColors.amoledBlack,
           body: Stack(
             children: [
-              // Ambient Liquid Glowing Mesh (Liquid Glass visual foundation)
-              Positioned(
-                top: -60,
-                right: -60,
-                child: IgnorePointer(
-                  child: Container(
-                    width: 340,
-                    height: 340,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          AppColors.ambientOrb1.withValues(alpha: 0.22),
-                          AppColors.ambientOrb1.withValues(alpha: 0.0),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 80,
-                left: -80,
-                child: IgnorePointer(
-                  child: Container(
-                    width: 360,
-                    height: 360,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          AppColors.ambientOrb2.withValues(alpha: 0.20),
-                          AppColors.ambientOrb2.withValues(alpha: 0.0),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: MediaQuery.of(context).size.height * 0.45,
-                right: -80,
-                child: IgnorePointer(
-                  child: Container(
-                    width: 260,
-                    height: 260,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          AppColors.accent.withValues(alpha: 0.12),
-                          AppColors.accent.withValues(alpha: 0.0),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              // Smooth PageView
+              // Clean PageView over Pure OLED Black (#000000)
               PageView(
                 controller: _pageController,
                 physics: const BouncingScrollPhysics(),
@@ -144,7 +91,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 children: _screens,
               ),
 
-              // Floating Player + Liquid Glass Bottom Dock
+              // Floating Player + Minimalist AMOLED Dock
               Positioned(
                 left: 0,
                 right: 0,
@@ -152,10 +99,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Floating Mini Player with Liquid Glass
+                    // Floating Mini Player
                     const FloatingMiniPlayer(),
 
-                    // Liquid Glass Hold & Drag Dock
+                    // Minimalist AMOLED Dock
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
                       child: LayoutBuilder(
@@ -182,12 +129,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                   borderRadius: BorderRadius.circular(36),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppColors.primary.withValues(alpha: _isDragging ? 0.35 : 0.14),
-                                      blurRadius: _isDragging ? 28 : 20,
-                                      offset: const Offset(0, 8),
-                                    ),
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.65),
+                                      color: Colors.black.withValues(alpha: 0.85),
                                       blurRadius: 26,
                                       offset: const Offset(0, 10),
                                     ),
@@ -200,21 +142,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                     child: Container(
                                       padding: const EdgeInsets.all(6),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.08),
+                                        color: AppColors.surface.withValues(alpha: 0.90),
                                         borderRadius: BorderRadius.circular(36),
                                         border: Border.all(
-                                          color: _isDragging
-                                              ? AppColors.primary.withValues(alpha: 0.7)
-                                              : Colors.white.withValues(alpha: 0.22),
-                                          width: 1.3,
-                                        ),
-                                        gradient: LinearGradient(
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                          colors: [
-                                            Colors.white.withValues(alpha: 0.16),
-                                            AppColors.surface.withValues(alpha: 0.70),
-                                          ],
+                                          color: Colors.white.withValues(alpha: 0.12),
+                                          width: 1.0,
                                         ),
                                       ),
                                       child: Stack(
@@ -235,44 +167,40 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                             child: Container(
                                               decoration: BoxDecoration(
                                                 borderRadius: BorderRadius.circular(28),
-                                                gradient: LinearGradient(
-                                                  colors: AppColors.primaryGradient,
-                                                  begin: Alignment.topLeft,
-                                                  end: Alignment.bottomRight,
+                                                color: accentColor.withValues(alpha: 0.20),
+                                                border: Border.all(
+                                                  color: accentColor.withValues(alpha: 0.45),
+                                                  width: 1.2,
                                                 ),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: AppColors.primary.withValues(alpha: 0.45),
-                                                    blurRadius: 14,
-                                                    offset: const Offset(0, 3),
-                                                  ),
-                                                ],
                                               ),
                                             ),
                                           ),
 
-                                          // The 3 Tabs
+                                          // The 3 Tabs using Custom SVG Vector Paths
                                           Row(
                                             children: [
                                               Expanded(
                                                 child: _buildTabItem(
                                                   index: 0,
-                                                  icon: Icons.home_rounded,
+                                                  svgIcon: AppSvgIcons.home,
                                                   label: 'الرئيسية',
+                                                  accentColor: accentColor,
                                                 ),
                                               ),
                                               Expanded(
                                                 child: _buildTabItem(
                                                   index: 1,
-                                                  icon: Icons.music_note_rounded,
+                                                  svgIcon: AppSvgIcons.musicNote,
                                                   label: 'الأغاني',
+                                                  accentColor: accentColor,
                                                 ),
                                               ),
                                               Expanded(
                                                 child: _buildTabItem(
                                                   index: 2,
-                                                  icon: Icons.queue_music_rounded,
+                                                  svgIcon: AppSvgIcons.playlist,
                                                   label: 'القوائم',
+                                                  accentColor: accentColor,
                                                 ),
                                               ),
                                             ],
@@ -300,41 +228,46 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   Widget _buildTabItem({
     required int index,
-    required IconData icon,
+    required String svgIcon,
     required String label,
+    required Color accentColor,
   }) {
     final isSelected = _currentIndex == index;
 
-    return SizedBox(
-      height: 48,
-      child: Center(
-        child: AnimatedDefaultTextStyle(
-          duration: const Duration(milliseconds: 200),
-          style: TextStyle(
-            color: isSelected ? AppColors.onPrimary : Colors.white.withValues(alpha: 0.7),
-            fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
-            fontSize: 12,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                color: isSelected ? AppColors.onPrimary : Colors.white.withValues(alpha: 0.7),
-                size: 18,
-              ),
-              if (isSelected) ...[
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+    return GestureDetector(
+      onTap: () => _onTabTapped(index),
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        height: 48,
+        child: Center(
+          child: AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 200),
+            style: TextStyle(
+              color: isSelected ? accentColor : Colors.white.withValues(alpha: 0.7),
+              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+              fontSize: 12,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppSvgIcon(
+                  svgIcon,
+                  color: isSelected ? accentColor : Colors.white.withValues(alpha: 0.7),
+                  size: 20,
                 ),
+                if (isSelected) ...[
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

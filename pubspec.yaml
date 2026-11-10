@@ -43,6 +43,10 @@ dependencies:
   google_fonts: ^9.0.0
   intl: ^0.20.3
   path_provider: ^2.1.6
+  http: ^1.2.0
+  flutter_svg: ^2.0.17
+  palette_generator_plus: ^1.0.0
+  youtube_explode_dart: ^3.1.0
 
 dev_dependencies:
   flutter_test:

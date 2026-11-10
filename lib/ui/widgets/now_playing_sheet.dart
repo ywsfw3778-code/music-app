@@ -2,24 +2,26 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_svg_icons.dart';
+import '../../core/theme/app_theme.dart';
 import '../../models/song_model.dart';
 import '../../providers/music_provider.dart';
 import 'album_art_widget.dart';
+import 'app_svg_icon.dart';
 import 'interactive_scale_tap.dart';
-import 'sound_wave_visualizer.dart';
+import 'synced_lyrics_widget.dart';
 
 class NowPlayingSheet extends StatelessWidget {
   const NowPlayingSheet({super.key});
 
   String _formatDuration(Duration d) {
-    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final minutes = d.inMinutes.remainder(60).toString();
     final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
   }
 
-  void _showAddToPlaylistDialog(BuildContext context, SongModel song) {
+  void _showAddToPlaylistDialog(BuildContext context, SongModel song, Color accentColor) {
     final provider = Provider.of<MusicProvider>(context, listen: false);
     showModalBottomSheet(
       context: context,
@@ -70,9 +72,12 @@ class NowPlayingSheet extends StatelessWidget {
                             color: AppColors.surfaceLight,
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Icon(
-                            Icons.queue_music_rounded,
-                            color: AppColors.primary,
+                          child: Center(
+                            child: AppSvgIcon(
+                              AppSvgIcons.playlist,
+                              color: accentColor,
+                              size: 20,
+                            ),
                           ),
                         ),
                         title: Text(
@@ -86,11 +91,12 @@ class NowPlayingSheet extends StatelessWidget {
                           '${pl.songIds.length} أغنية',
                           style: const TextStyle(color: AppColors.textMuted),
                         ),
-                        trailing: Icon(
+                        trailing: AppSvgIcon(
                           isAdded
-                              ? Icons.check_circle_rounded
-                              : Icons.add_circle_outline_rounded,
-                          color: isAdded ? AppColors.primary : AppColors.textSecondary,
+                              ? AppSvgIcons.checkCircle
+                              : AppSvgIcons.addCircle,
+                          color: isAdded ? accentColor : AppColors.textSecondary,
+                          size: 22,
                         ),
                         onTap: () {
                           provider.toggleSongInPlaylist(pl.id, song.id);
@@ -118,12 +124,84 @@ class NowPlayingSheet extends StatelessWidget {
     );
   }
 
+  void _showLyricsSheet(BuildContext context, SongModel song, Color accentColor) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.amoledBlack,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      builder: (ctx) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.80,
+          decoration: const BoxDecoration(
+            color: AppColors.amoledBlack,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Column(
+                  children: [
+                    Text(
+                      song.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      song.artist,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(color: Colors.white12, height: 24),
+              Expanded(
+                child: SyncedLyricsWidget(
+                  song: song,
+                  activeColor: accentColor,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<MusicProvider>(
       builder: (context, provider, _) {
         final song = provider.currentSong;
         if (song == null) return const SizedBox.shrink();
+
+        final accentColor = DynamicPalette.getColor(song);
 
         final maxDurationMs = provider.totalDuration.inMilliseconds > 0
             ? provider.totalDuration.inMilliseconds.toDouble()
@@ -133,400 +211,436 @@ class NowPlayingSheet extends StatelessWidget {
             .toDouble()
             .clamp(0.0, maxDurationMs);
 
+        final remainingDuration = provider.totalDuration > provider.currentPosition
+            ? provider.totalDuration - provider.currentPosition
+            : Duration.zero;
+
         return ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-            child: Container(
-              height: MediaQuery.of(context).size.height * 0.92,
-              decoration: BoxDecoration(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(36)),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.22),
-                  width: 1.2,
-                ),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.white.withValues(alpha: 0.12),
-                    AppColors.background.withValues(alpha: 0.96),
-                  ],
-                ),
-              ),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 12),
-                      // Swipe Handle
-                      Container(
-                        width: 48,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Top Bar
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.94,
+            color: AppColors.amoledBlack,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // 1. Soft Blurred Album Art Dynamic Full-Screen Backdrop with Crossfade
+                Positioned.fill(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 400),
+                    switchInCurve: Curves.easeOut,
+                    switchOutCurve: Curves.easeIn,
+                    child: KeyedSubtree(
+                      key: ValueKey('backdrop_${song.id}'),
+                      child: Stack(
+                        fit: StackFit.expand,
                         children: [
-                          InteractiveScaleTap(
-                            onTap: () => Navigator.pop(context),
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.08),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.15),
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                color: AppColors.textPrimary,
-                                size: 28,
+                          const ColoredBox(color: AppColors.amoledBlack),
+                          // Heavy gaussian blur over artwork
+                          ImageFiltered(
+                            imageFilter: ImageFilter.blur(
+                              sigmaX: 45,
+                              sigmaY: 45,
+                              tileMode: TileMode.decal,
+                            ),
+                            child: Transform.scale(
+                              scale: 1.15,
+                              child: AlbumArtWidget(
+                                song: song,
+                                size: double.infinity,
+                                borderRadius: 0,
                               ),
                             ),
                           ),
-                          Column(
-                            children: [
-                              const Text(
-                                'مشغل الموسيقى',
-                                style: TextStyle(
-                                  color: AppColors.textMuted,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              if (song.playCount > 0)
-                                Text(
-                                  'تم الاستماع ${song.playCount} مرة',
-                                  style: TextStyle(
-                                    color: AppColors.primary,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          InteractiveScaleTap(
-                            onTap: () => _showAddToPlaylistDialog(context, song),
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.08),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.15),
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.playlist_add_rounded,
-                                color: AppColors.textPrimary,
-                                size: 24,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-
-                      // Shared Element Morphing Artwork (Morphs from mini player)
-                      Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // Glowing backdrop
+                          // Darkened overlay transitioning to pure AMOLED black at bottom
                           Container(
-                            width: 250,
-                            height: 250,
                             decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primary.withValues(alpha: 0.25),
-                                  blurRadius: 50,
-                                  spreadRadius: 10,
-                                ),
-                              ],
-                            ),
-                          ),
-                          Hero(
-                            tag: 'player_art_${song.id}',
-                            child: AlbumArtWidget(
-                              song: song,
-                              size: 260,
-                              borderRadius: 28,
-                            ),
-                          ),
-                        ],
-                      )
-                          .animate()
-                          .scale(
-                            begin: const Offset(0.92, 0.92),
-                            end: const Offset(1, 1),
-                            curve: Curves.easeOutBack,
-                            duration: 400.ms,
-                          ),
-                      const Spacer(),
-
-                      // Song Title & Artist with Framer-style Slide In Switcher
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 250),
-                              transitionBuilder: (child, animation) {
-                                return FadeTransition(
-                                  opacity: animation,
-                                  child: SlideTransition(
-                                    position: Tween<Offset>(
-                                      begin: const Offset(0.0, 0.2),
-                                      end: Offset.zero,
-                                    ).animate(
-                                      CurvedAnimation(
-                                        parent: animation,
-                                        curve: Curves.easeOutCubic,
-                                      ),
-                                    ),
-                                    child: child,
-                                  ),
-                                );
-                              },
-                              child: Column(
-                                key: ValueKey(song.id),
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    song.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: AppColors.textPrimary,
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -0.5,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    song.artist,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.black.withValues(alpha: 0.55),
+                                  Colors.black.withValues(alpha: 0.72),
+                                  AppColors.amoledBlack.withValues(alpha: 0.94),
+                                  AppColors.amoledBlack,
                                 ],
+                                stops: const [0.0, 0.40, 0.78, 1.0],
                               ),
                             ),
                           ),
-                          Row(
-                            children: [
-                              SoundWaveVisualizer(
-                                isPlaying: provider.isPlaying,
-                                barCount: 4,
-                                maxHeight: 22,
-                              ),
-                              const SizedBox(width: 14),
-                              InteractiveScaleTap(
-                                onTap: () => provider.toggleFavorite(song),
-                                child: Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: song.isFavorite
-                                        ? AppColors.heart.withValues(alpha: 0.15)
-                                        : AppColors.surfaceLight,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    song.isFavorite
-                                        ? Icons.favorite_rounded
-                                        : Icons.favorite_border_rounded,
-                                    color: song.isFavorite
-                                        ? AppColors.heart
-                                        : AppColors.textSecondary,
-                                    size: 26,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
                         ],
                       ),
-                      const SizedBox(height: 20),
+                    ),
+                  ),
+                ),
 
-                      // Seekbar Slider
-                      SliderTheme(
-                        data: SliderTheme.of(context).copyWith(
-                          trackHeight: 4,
-                          activeTrackColor: AppColors.primary,
-                          inactiveTrackColor: AppColors.surfaceLight,
-                          thumbColor: AppColors.primary,
-                          thumbShape: const RoundSliderThumbShape(
-                            enabledThumbRadius: 7,
-                          ),
-                          overlayColor: AppColors.primary.withValues(alpha: 0.2),
-                          overlayShape: const RoundSliderOverlayShape(
-                            overlayRadius: 16,
-                          ),
-                        ),
-                        child: Slider(
-                          value: currentPositionMs,
-                          min: 0.0,
-                          max: maxDurationMs,
-                          onChanged: (val) {
-                            provider.seek(Duration(milliseconds: val.toInt()));
-                          },
-                        ),
-                      ),
+                // 2. Foreground Authentic Apple/Spotify Player UI
+                SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 28.0),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 8),
 
-                      // Time Display (Elapsed vs Total)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: Row(
+                        // Top Bar: Down Chevron / Dismiss Handle
+                        Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              _formatDuration(provider.currentPosition),
-                              style: const TextStyle(
-                                color: AppColors.textMuted,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                            InteractiveScaleTap(
+                              onTap: () => Navigator.pop(context),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: const BoxDecoration(
+                                  color: Colors.transparent,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const AppSvgIcon(
+                                  AppSvgIcons.chevronDown,
+                                  color: Colors.white70,
+                                  size: 26,
+                                ),
                               ),
                             ),
-                            Text(
-                              _formatDuration(provider.totalDuration),
-                              style: const TextStyle(
-                                color: AppColors.textMuted,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                            // Optional minimal title / subtitle
+                            Column(
+                              children: [
+                                const Text(
+                                  'PLAYING FROM YOUR LIBRARY',
+                                  style: TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.1,
+                                  ),
+                                ),
+                                if (song.playCount > 0)
+                                  Text(
+                                    '${song.playCount} plays',
+                                    style: TextStyle(
+                                      color: accentColor,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            InteractiveScaleTap(
+                              onTap: () => _showAddToPlaylistDialog(context, song, accentColor),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: const BoxDecoration(
+                                  color: Colors.transparent,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const AppSvgIcon(
+                                  AppSvgIcons.playlist,
+                                  color: Colors.white70,
+                                  size: 22,
+                                ),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 16),
 
-                      // Primary Media Controls
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          // Shuffle
-                          InteractiveScaleTap(
-                            onTap: provider.toggleShuffle,
-                            child: Icon(
-                              Icons.shuffle_rounded,
-                              color: provider.isShuffle
-                                  ? AppColors.primary
-                                  : AppColors.textMuted,
-                              size: 26,
-                            ),
-                          ),
+                        const Spacer(flex: 1),
 
-                          // Previous Track
-                          InteractiveScaleTap(
-                            onTap: provider.playPrevious,
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white.withValues(alpha: 0.08),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.15),
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.skip_previous_rounded,
-                                color: AppColors.textPrimary,
-                                size: 30,
-                              ),
-                            ),
-                          ),
-
-                          // Giant Play/Pause with Spring Pop
-                          InteractiveScaleTap(
-                            onTap: provider.togglePlayPause,
-                            child: Container(
-                              width: 72,
-                              height: 72,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  colors: AppColors.primaryGradient,
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.primary.withValues(alpha: 0.5),
-                                    blurRadius: 20,
-                                    spreadRadius: 2,
-                                    offset: const Offset(0, 4),
+                        // Large Centered Album Artwork matching Mockup (responsive to viewport height)
+                        Expanded(
+                          flex: 10,
+                          child: Center(
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                final artSize = constraints.maxHeight.clamp(140.0, 300.0);
+                                return Container(
+                                  width: artSize,
+                                  height: artSize,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(24),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.60),
+                                        blurRadius: 36,
+                                        offset: const Offset(0, 16),
+                                        spreadRadius: 2,
+                                      ),
+                                    ],
                                   ),
-                                ],
+                                  child: Hero(
+                                    tag: 'player_art_${song.id}',
+                                    child: AlbumArtWidget(
+                                      song: song,
+                                      size: artSize,
+                                      borderRadius: 24,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+
+                        const Spacer(flex: 1),
+
+                        // Track Title, Artist, & Favorite Heart Button Row
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 250),
+                                transitionBuilder: (child, animation) {
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: child,
+                                  );
+                                },
+                                child: Column(
+                                  key: ValueKey(song.id),
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      song.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: -0.4,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      song.artist,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              child: Center(
-                                child: Icon(
-                                  provider.isPlaying
-                                      ? Icons.pause_rounded
-                                      : Icons.play_arrow_rounded,
-                                  color: AppColors.onPrimary,
-                                  size: 40,
+                            ),
+                            const SizedBox(width: 12),
+                            InteractiveScaleTap(
+                              onTap: () => provider.toggleFavorite(song),
+                              child: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: AppSvgIcon(
+                                  song.isFavorite
+                                      ? AppSvgIcons.heartSolid
+                                      : AppSvgIcons.heartOutline,
+                                  color: song.isFavorite
+                                      ? AppColors.heart
+                                      : AppColors.textSecondary,
+                                  size: 26,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        // Sleek Minimalist Progress Seekbar
+                        SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            trackHeight: 3.5,
+                            activeTrackColor: accentColor,
+                            inactiveTrackColor: Colors.white.withValues(alpha: 0.18),
+                            thumbColor: Colors.white,
+                            thumbShape: const RoundSliderThumbShape(
+                              enabledThumbRadius: 6,
+                            ),
+                            overlayColor: accentColor.withValues(alpha: 0.18),
+                            overlayShape: const RoundSliderOverlayShape(
+                              overlayRadius: 14,
+                            ),
+                          ),
+                          child: Slider(
+                            value: currentPositionMs,
+                            min: 0.0,
+                            max: maxDurationMs,
+                            onChanged: (val) {
+                              provider.seek(Duration(milliseconds: val.toInt()));
+                            },
+                          ),
+                        ),
+
+                        // Elapsed Time (Left) & Negative Remaining Time (Right) matching Mockup
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _formatDuration(provider.currentPosition),
+                                style: const TextStyle(
+                                  color: AppColors.textMuted,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                '-${_formatDuration(remainingDuration)}',
+                                style: const TextStyle(
+                                  color: AppColors.textMuted,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Primary Controls Row matching Mockup
+                        // [Shuffle, Previous, Play/Pause (with dynamic glow), Next, Repeat]
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            // 1. Shuffle
+                            InteractiveScaleTap(
+                              onTap: provider.toggleShuffle,
+                              child: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: AppSvgIcon(
+                                  AppSvgIcons.shuffle,
+                                  color: provider.isShuffle
+                                      ? accentColor
+                                      : AppColors.textMuted,
+                                  size: 22,
+                                ),
+                              ),
+                            ),
+
+                            // 2. Previous Track
+                            InteractiveScaleTap(
+                              onTap: provider.playPrevious,
+                              child: const Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: AppSvgIcon(
+                                  AppSvgIcons.skipPrevious,
+                                  color: AppColors.textPrimary,
+                                  size: 28,
+                                ),
+                              ),
+                            ),
+
+                            // 3. Giant Play/Pause with Natural Radial Glow Halo matching Mockup
+                            InteractiveScaleTap(
+                              onTap: provider.togglePlayPause,
+                              child: Container(
+                                width: 72,
+                                height: 72,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: const Color(0xFF282828),
+                                  border: Border.all(
+                                    color: accentColor.withValues(alpha: 0.70),
+                                    width: 2.0,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: accentColor.withValues(alpha: 0.45),
+                                      blurRadius: 28,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: AppSvgIcon(
+                                    provider.isPlaying
+                                        ? AppSvgIcons.pause
+                                        : AppSvgIcons.play,
+                                    color: Colors.white,
+                                    size: 32,
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // 4. Next Track
+                            InteractiveScaleTap(
+                              onTap: provider.playNext,
+                              child: const Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: AppSvgIcon(
+                                  AppSvgIcons.skipNext,
+                                  color: AppColors.textPrimary,
+                                  size: 28,
+                                ),
+                              ),
+                            ),
+
+                            // 5. Repeat Mode
+                            InteractiveScaleTap(
+                              onTap: provider.cycleRepeatMode,
+                              child: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: AppSvgIcon(
+                                  provider.loopMode == LoopMode.one
+                                      ? AppSvgIcons.repeatOne
+                                      : AppSvgIcons.repeatAll,
+                                  color: provider.loopMode != LoopMode.off
+                                      ? accentColor
+                                      : AppColors.textMuted,
+                                  size: 22,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const Spacer(flex: 2),
+
+                        // Frosted Glass "LYRICS" Pill Button at Bottom matching Mockup
+                        Center(
+                          child: InteractiveScaleTap(
+                            onTap: () => _showLyricsSheet(context, song, accentColor),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 9,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.18),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'LYRICS',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 1.5,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
+                        ),
 
-                          // Next Track
-                          InteractiveScaleTap(
-                            onTap: provider.playNext,
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white.withValues(alpha: 0.08),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.15),
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.skip_next_rounded,
-                                color: AppColors.textPrimary,
-                                size: 30,
-                              ),
-                            ),
-                          ),
-
-                          // Repeat Mode
-                          InteractiveScaleTap(
-                            onTap: provider.cycleRepeatMode,
-                            child: Icon(
-                              provider.loopMode == LoopMode.one
-                                  ? Icons.repeat_one_rounded
-                                  : Icons.repeat_rounded,
-                              color: provider.loopMode != LoopMode.off
-                                  ? AppColors.primary
-                                  : AppColors.textMuted,
-                              size: 26,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 28),
-                    ],
+                        const SizedBox(height: 16),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ),
         );

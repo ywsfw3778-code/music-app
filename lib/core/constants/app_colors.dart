@@ -1,158 +1,58 @@
 import 'package:flutter/material.dart';
 
-enum AppThemeStyle { visionOS, cyberNeon, titanium }
+enum AppThemeStyle { amoled, naturalDark, midnight, visionOS, cyberNeon, titanium }
 
+/// Pure AMOLED Black palette and natural dynamic theme definitions.
+/// Absolutely NO neon/cyan/magenta synthwave colors. True OLED black (#000000).
 class AppColors {
-  static AppThemeStyle currentStyle = AppThemeStyle.visionOS;
+  static AppThemeStyle currentStyle = AppThemeStyle.amoled;
 
-  // Background
-  static Color get background {
-    switch (currentStyle) {
-      case AppThemeStyle.visionOS:
-        return const Color(0xFF090912); // Deep Obsidian
-      case AppThemeStyle.cyberNeon:
-        return const Color(0xFF0D0614); // Cyber Midnight
-      case AppThemeStyle.titanium:
-        return const Color(0xFF050508); // Pure Titanium Dark
-    }
-  }
+  // Pure AMOLED Black base (True #000000 - 0% OLED power consumption on black)
+  static const Color amoledBlack = Color(0xFF000000);
+  static Color get background => amoledBlack;
 
-  // Surface
-  static Color get surface {
-    switch (currentStyle) {
-      case AppThemeStyle.visionOS:
-        return const Color(0xFF131322);
-      case AppThemeStyle.cyberNeon:
-        return const Color(0xFF190F24);
-      case AppThemeStyle.titanium:
-        return const Color(0xFF111217);
-    }
-  }
+  // Clean, sleek natural dark surfaces
+  static const Color surfaceDark = Color(0xFF121212);
+  static const Color surfaceLightDark = Color(0xFF1E1E1E);
+  static const Color surfaceElevatedDark = Color(0xFF282828);
 
-  static Color get surfaceLight {
-    switch (currentStyle) {
-      case AppThemeStyle.visionOS:
-        return const Color(0xFF1C1C30);
-      case AppThemeStyle.cyberNeon:
-        return const Color(0xFF261536);
-      case AppThemeStyle.titanium:
-        return const Color(0xFF1C1D24);
-    }
-  }
+  static Color get surface => surfaceDark;
+  static Color get surfaceLight => surfaceLightDark;
+  static Color get surfaceElevated => surfaceElevatedDark;
 
-  static Color get surfaceElevated {
-    switch (currentStyle) {
-      case AppThemeStyle.visionOS:
-        return const Color(0xFF24243E);
-      case AppThemeStyle.cyberNeon:
-        return const Color(0xFF331B47);
-      case AppThemeStyle.titanium:
-        return const Color(0xFF262832);
-    }
-  }
+  // Natural warm amber / golden honey default accent (authentic, organic)
+  static const Color naturalAmber = Color(0xFFE5A93C);
+  static const Color naturalWarmGold = Color(0xFFD97706);
 
-  // Primary Accent
-  static Color get primary {
-    switch (currentStyle) {
-      case AppThemeStyle.visionOS:
-        return const Color(0xFF8B5CF6); // Electric Violet
-      case AppThemeStyle.cyberNeon:
-        return const Color(0xFFFF007A); // Hot Magenta / Cyber Pink
-      case AppThemeStyle.titanium:
-        return const Color(0xFFE2E8F0); // Platinum Silver
-    }
-  }
+  static Color get primary => naturalAmber;
+  static Color get primaryGlow => const Color(0x40E5A93C);
+  static Color get onPrimary => Colors.black;
 
-  static Color get primaryGlow {
-    switch (currentStyle) {
-      case AppThemeStyle.visionOS:
-        return const Color(0x668B5CF6);
-      case AppThemeStyle.cyberNeon:
-        return const Color(0x66FF007A);
-      case AppThemeStyle.titanium:
-        return const Color(0x55FFFFFF);
-    }
-  }
+  // Secondary natural accents
+  static Color get accent => naturalWarmGold;
+  static Color get accentCyan => const Color(0xFF38BDF8);
+  static Color get accentPink => const Color(0xFFFB7185);
 
-  static Color get onPrimary {
-    switch (currentStyle) {
-      case AppThemeStyle.visionOS:
-        return Colors.white;
-      case AppThemeStyle.cyberNeon:
-        return Colors.white;
-      case AppThemeStyle.titanium:
-        return Colors.black;
-    }
-  }
+  // Natural organic gradient
+  static List<Color> get primaryGradient => const [
+        Color(0xFFE5A93C),
+        Color(0xFFD97706),
+      ];
 
-  // Secondary Accents
-  static Color get accent {
-    switch (currentStyle) {
-      case AppThemeStyle.visionOS:
-        return const Color(0xFF06B6D4); // Neon Cyan
-      case AppThemeStyle.cyberNeon:
-        return const Color(0xFF00E5FF); // Electric Blue
-      case AppThemeStyle.titanium:
-        return const Color(0xFF94A3B8); // Slate Ice
-    }
-  }
+  // Ambient backdrops for mockup frame
+  static Color get ambientOrb1 => const Color(0xFF1F1F1F);
+  static Color get ambientOrb2 => const Color(0xFF141414);
 
-  static Color get accentCyan => const Color(0xFF06B6D4);
-  static Color get accentPink => const Color(0xFFEC4899);
-
-  // Linear Gradient for primary hero elements
-  static List<Color> get primaryGradient {
-    switch (currentStyle) {
-      case AppThemeStyle.visionOS:
-        return const [Color(0xFF8B5CF6), Color(0xFF06B6D4)];
-      case AppThemeStyle.cyberNeon:
-        return const [Color(0xFFFF007A), Color(0xFF7928CA)];
-      case AppThemeStyle.titanium:
-        return const [Color(0xFFFFFFFF), Color(0xFF94A3B8)];
-    }
-  }
-
-  // Ambient mesh blobs behind the glass
-  static Color get ambientOrb1 {
-    switch (currentStyle) {
-      case AppThemeStyle.visionOS:
-        return const Color(0xFF8B5CF6); // Violet
-      case AppThemeStyle.cyberNeon:
-        return const Color(0xFFFF007A); // Magenta
-      case AppThemeStyle.titanium:
-        return const Color(0xFF64748B); // Slate
-    }
-  }
-
-  static Color get ambientOrb2 {
-    switch (currentStyle) {
-      case AppThemeStyle.visionOS:
-        return const Color(0xFF06B6D4); // Cyan
-      case AppThemeStyle.cyberNeon:
-        return const Color(0xFF00E5FF); // Electric Blue
-      case AppThemeStyle.titanium:
-        return const Color(0xFF475569); // Titanium
-    }
-  }
-
-  // Typography
-  static const Color textPrimary = Color(0xFFF8FAFC);
-  static const Color textSecondary = Color(0xFF94A3B8);
-  static const Color textMuted = Color(0xFF64748B);
+  // Typography (Ultra-crisp Apple/Spotify high legibility)
+  static const Color textPrimary = Color(0xFFFFFFFF);
+  static const Color textSecondary = Color(0xFFB3B3B3);
+  static const Color textMuted = Color(0xFF757575);
 
   // Borders
-  static Color get border {
-    switch (currentStyle) {
-      case AppThemeStyle.visionOS:
-        return const Color(0xFF2A2A44);
-      case AppThemeStyle.cyberNeon:
-        return const Color(0xFF381F4B);
-      case AppThemeStyle.titanium:
-        return const Color(0xFF22242D);
-    }
-  }
+  static Color get border => const Color(0xFF242424);
+  static const Color borderLight = Color(0xFF333333);
 
-  static const Color borderLight = Color(0xFF38385A);
+  // State colors
   static const Color error = Color(0xFFEF4444);
-  static const Color heart = Color(0xFFF43F5E);
+  static const Color heart = Color(0xFFE11D48);
 }

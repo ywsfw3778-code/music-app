@@ -2,8 +2,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_svg_icons.dart';
+import '../../core/theme/app_theme.dart';
 import '../../providers/music_provider.dart';
 import 'album_art_widget.dart';
+import 'app_svg_icon.dart';
 import 'interactive_scale_tap.dart';
 import 'now_playing_sheet.dart';
 import 'sound_wave_visualizer.dart';
@@ -54,6 +57,8 @@ class _FloatingMiniPlayerState extends State<FloatingMiniPlayer>
         final song = provider.currentSong;
         if (song == null) return const SizedBox.shrink();
 
+        final accentColor = DynamicPalette.getColor(song);
+
         if (provider.isPlaying) {
           if (!_rotationController.isAnimating) {
             _rotationController.repeat();
@@ -82,14 +87,9 @@ class _FloatingMiniPlayerState extends State<FloatingMiniPlayer>
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.16),
-                  blurRadius: 22,
-                  offset: const Offset(0, 6),
-                ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.55),
-                  blurRadius: 18,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withValues(alpha: 0.75),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
@@ -100,19 +100,11 @@ class _FloatingMiniPlayerState extends State<FloatingMiniPlayer>
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(12, 8, 14, 6),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.07),
+                    color: AppColors.surfaceElevated.withValues(alpha: 0.85),
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.20),
-                      width: 1.2,
-                    ),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white.withValues(alpha: 0.14),
-                        AppColors.surface.withValues(alpha: 0.78),
-                      ],
+                      color: Colors.white.withValues(alpha: 0.12),
+                      width: 1.0,
                     ),
                   ),
                   child: Column(
@@ -120,7 +112,7 @@ class _FloatingMiniPlayerState extends State<FloatingMiniPlayer>
                     children: [
                       Row(
                         children: [
-                          // Shared Element Morphing (Hero) + Spinning Vinyl
+                          // Rotating circular artwork
                           Hero(
                             tag: 'player_art_${song.id}',
                             child: RotationTransition(
@@ -130,7 +122,7 @@ class _FloatingMiniPlayerState extends State<FloatingMiniPlayer>
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: AppColors.primary.withValues(alpha: 0.7),
+                                    color: accentColor.withValues(alpha: 0.6),
                                     width: 1.5,
                                   ),
                                 ),
@@ -210,15 +202,15 @@ class _FloatingMiniPlayerState extends State<FloatingMiniPlayer>
                             ),
                           ),
 
-                          // Controls (Favorite, Play/Pause, Next)
+                          // Favorite Heart Button (SVG)
                           InteractiveScaleTap(
                             onTap: () => provider.toggleFavorite(song),
                             child: Padding(
                               padding: const EdgeInsets.all(6.0),
-                              child: Icon(
+                              child: AppSvgIcon(
                                 song.isFavorite
-                                    ? Icons.favorite_rounded
-                                    : Icons.favorite_border_rounded,
+                                    ? AppSvgIcons.heartSolid
+                                    : AppSvgIcons.heartOutline,
                                 color: song.isFavorite
                                     ? AppColors.heart
                                     : AppColors.textSecondary,
@@ -228,45 +220,49 @@ class _FloatingMiniPlayerState extends State<FloatingMiniPlayer>
                           ),
                           const SizedBox(width: 4),
 
-                          // Play/Pause Button with Spring Pop
+                          // Play/Pause Button with dynamic glow & SVG
                           InteractiveScaleTap(
                             onTap: provider.togglePlayPause,
                             child: Container(
                               width: 38,
                               height: 38,
                               decoration: BoxDecoration(
-                                gradient: LinearGradient(colors: AppColors.primaryGradient),
+                                color: const Color(0xFF282828),
                                 shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: accentColor.withValues(alpha: 0.6),
+                                  width: 1.5,
+                                ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppColors.primary.withValues(alpha: 0.45),
+                                    color: accentColor.withValues(alpha: 0.35),
                                     blurRadius: 10,
                                     spreadRadius: 1,
                                   ),
                                 ],
                               ),
                               child: Center(
-                                child: Icon(
+                                child: AppSvgIcon(
                                   provider.isPlaying
-                                      ? Icons.pause_rounded
-                                      : Icons.play_arrow_rounded,
-                                  color: AppColors.onPrimary,
-                                  size: 24,
+                                      ? AppSvgIcons.pause
+                                      : AppSvgIcons.play,
+                                  color: Colors.white,
+                                  size: 20,
                                 ),
                               ),
                             ),
                           ),
                           const SizedBox(width: 6),
 
-                          // Next Song Button
+                          // Next Song Button (SVG)
                           InteractiveScaleTap(
                             onTap: provider.playNext,
                             child: const Padding(
                               padding: EdgeInsets.all(6.0),
-                              child: Icon(
-                                Icons.skip_next_rounded,
+                              child: AppSvgIcon(
+                                AppSvgIcons.skipNext,
                                 color: AppColors.textPrimary,
-                                size: 24,
+                                size: 22,
                               ),
                             ),
                           ),
@@ -274,16 +270,16 @@ class _FloatingMiniPlayerState extends State<FloatingMiniPlayer>
                       ),
                       const SizedBox(height: 6),
 
-                      // Glowing Liquid Progress Bar
+                      // Sleek AMOLED Progress Bar
                       ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: SizedBox(
-                          height: 3,
+                          height: 2.5,
                           child: LinearProgressIndicator(
                             value: progress,
-                            backgroundColor: Colors.white.withValues(alpha: 0.1),
+                            backgroundColor: Colors.white.withValues(alpha: 0.12),
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              AppColors.primary,
+                              accentColor,
                             ),
                           ),
                         ),

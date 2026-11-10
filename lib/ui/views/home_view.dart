@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_svg_icons.dart';
+import '../../core/theme/app_theme.dart';
 import '../../providers/music_provider.dart';
 import '../widgets/album_art_widget.dart';
+import '../widgets/app_svg_icon.dart';
 import '../widgets/interactive_scale_tap.dart';
 import '../widgets/sound_wave_visualizer.dart';
+import 'youtube_search_view.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
@@ -19,7 +23,7 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
 
   String _formatDuration(int ms) {
     final d = Duration(milliseconds: ms);
-    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final minutes = d.inMinutes.remainder(60).toString();
     final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
   }
@@ -36,21 +40,23 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
           );
         }
 
+        final currentSong = provider.currentSong;
+        final accentColor = DynamicPalette.getColor(currentSong);
         final mostPlayed = provider.mostPlayedSongs;
         final allSongs = provider.allSongs;
         final favorites = provider.favoriteSongs;
 
         return RefreshIndicator(
-          color: AppColors.primary,
+          color: accentColor,
           backgroundColor: AppColors.surface,
           onRefresh: provider.refreshSongs,
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              // Liquid Glass App Bar
+              // Minimalist AMOLED App Bar
               SliverAppBar(
                 floating: true,
-                backgroundColor: AppColors.background.withValues(alpha: 0.85),
+                backgroundColor: AppColors.amoledBlack.withValues(alpha: 0.92),
                 elevation: 0,
                 title: Row(
                   children: [
@@ -58,20 +64,19 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: AppColors.primaryGradient,
-                        ),
+                        color: accentColor.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.4),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
+                        border: Border.all(
+                          color: accentColor.withValues(alpha: 0.35),
+                          width: 1,
+                        ),
                       ),
                       child: Center(
-                        child: Icon(Icons.graphic_eq_rounded, color: AppColors.onPrimary, size: 20),
+                        child: AppSvgIcon(
+                          AppSvgIcons.soundLogo,
+                          color: accentColor,
+                          size: 20,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -88,7 +93,25 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                 ),
                 actions: [
                   IconButton(
-                    icon: const Icon(Icons.refresh_rounded, color: AppColors.textSecondary),
+                    icon: AppSvgIcon(
+                      AppSvgIcons.search,
+                      color: accentColor,
+                      size: 22,
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const YouTubeSearchView()),
+                      );
+                    },
+                    tooltip: 'بحث وتحميل YouTube',
+                  ),
+                  IconButton(
+                    icon: const AppSvgIcon(
+                      AppSvgIcons.refresh,
+                      color: AppColors.textSecondary,
+                      size: 20,
+                    ),
                     onPressed: provider.refreshSongs,
                     tooltip: 'إعادة الفحص',
                   ),
@@ -103,27 +126,7 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                     children: [
                       const SizedBox(height: 8),
 
-                      // 3-Theme Live Switcher Capsule
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.12),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            _buildThemePill(provider, AppThemeStyle.visionOS, '✨ VisionOS'),
-                            _buildThemePill(provider, AppThemeStyle.cyberNeon, '⚡ Cyber Neon'),
-                            _buildThemePill(provider, AppThemeStyle.titanium, '💎 Titanium'),
-                          ],
-                        ),
-                      ),
-
-                      // Luxury Hero Card (Featured Music / Shuffle)
+                      // Featured Music / Quick Shuffle Card
                       InteractiveScaleTap(
                         onTap: () {
                           if (allSongs.isNotEmpty) {
@@ -134,29 +137,17 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                         child: Container(
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(28),
+                            borderRadius: BorderRadius.circular(24),
+                            color: AppColors.surface,
                             border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.20),
-                              width: 1.3,
-                            ),
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                AppColors.primary.withValues(alpha: 0.28),
-                                AppColors.surface.withValues(alpha: 0.85),
-                              ],
+                              color: Colors.white.withValues(alpha: 0.08),
+                              width: 1,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: AppColors.primary.withValues(alpha: 0.22),
-                                blurRadius: 28,
-                                offset: const Offset(0, 8),
-                              ),
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.5),
+                                color: Colors.black.withValues(alpha: 0.6),
                                 blurRadius: 20,
-                                offset: const Offset(0, 4),
+                                offset: const Offset(0, 6),
                               ),
                             ],
                           ),
@@ -167,18 +158,21 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.12),
+                                        color: accentColor.withValues(alpha: 0.14),
                                         borderRadius: BorderRadius.circular(20),
                                         border: Border.all(
-                                          color: Colors.white.withValues(alpha: 0.15),
+                                          color: accentColor.withValues(alpha: 0.3),
                                         ),
                                       ),
-                                      child: const Text(
-                                        '🎧 Hi-Res Audio • تجربة نقية',
+                                      child: Text(
+                                        '🎧 Hi-Res Audio • تجربة طبيعية',
                                         style: TextStyle(
-                                          color: Colors.white,
+                                          color: accentColor,
                                           fontSize: 11,
                                           fontWeight: FontWeight.w700,
                                         ),
@@ -189,14 +183,14 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                                       'تشغيل عشوائي لكل أغانيك',
                                       style: TextStyle(
                                         fontSize: 18,
-                                        fontWeight: FontWeight.w900,
+                                        fontWeight: FontWeight.w800,
                                         color: AppColors.textPrimary,
                                         letterSpacing: -0.3,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '${allSongs.length} أغنية وتراك جاهزة للاستماع',
+                                      '${allSongs.length} أغنية جاهزة للاستماع',
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: AppColors.textSecondary.withValues(alpha: 0.9),
@@ -206,26 +200,24 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                                 ),
                               ),
                               Container(
-                                width: 54,
-                                height: 54,
+                                width: 52,
+                                height: 52,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  gradient: LinearGradient(
-                                    colors: AppColors.primaryGradient,
-                                  ),
+                                  color: accentColor,
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppColors.primary.withValues(alpha: 0.5),
-                                      blurRadius: 16,
+                                      color: accentColor.withValues(alpha: 0.4),
+                                      blurRadius: 14,
                                       offset: const Offset(0, 4),
                                     ),
                                   ],
                                 ),
-                                child: Center(
-                                  child: Icon(
-                                    Icons.play_arrow_rounded,
-                                    color: AppColors.onPrimary,
-                                    size: 32,
+                                child: const Center(
+                                  child: AppSvgIcon(
+                                    AppSvgIcons.play,
+                                    color: Colors.black,
+                                    size: 24,
                                   ),
                                 ),
                               ),
@@ -236,7 +228,7 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
 
                       const SizedBox(height: 28),
 
-                      // Section 1: Most Played 🔥 (الأكثر استماعاً)
+                      // Section 1: Most Played (الأكثر استماعاً)
                       if (mostPlayed.isNotEmpty) ...[
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -253,18 +245,21 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                                 ),
                                 const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.16),
+                                    color: accentColor.withValues(alpha: 0.16),
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(
-                                      color: AppColors.primary.withValues(alpha: 0.3),
+                                      color: accentColor.withValues(alpha: 0.3),
                                     ),
                                   ),
                                   child: Text(
                                     '🔥 TOP',
                                     style: TextStyle(
-                                      color: AppColors.primary,
+                                      color: accentColor,
                                       fontSize: 10,
                                       fontWeight: FontWeight.w900,
                                     ),
@@ -283,7 +278,7 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                         ),
                         const SizedBox(height: 14),
 
-                        // Horizontal Most Played Liquid Glass Cards
+                        // Horizontal Most Played Cards
                         SizedBox(
                           height: 200,
                           child: ListView.builder(
@@ -303,23 +298,15 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                                     padding: const EdgeInsets.all(10),
                                     decoration: BoxDecoration(
                                       color: isCurrent
-                                          ? AppColors.primary.withValues(alpha: 0.18)
-                                          : Colors.white.withValues(alpha: 0.05),
-                                      borderRadius: BorderRadius.circular(22),
+                                          ? accentColor.withValues(alpha: 0.14)
+                                          : AppColors.surface,
+                                      borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
                                         color: isCurrent
-                                            ? AppColors.primary
-                                            : Colors.white.withValues(alpha: 0.14),
-                                        width: isCurrent ? 1.6 : 1,
+                                            ? accentColor
+                                            : Colors.white.withValues(alpha: 0.08),
+                                        width: isCurrent ? 1.5 : 1,
                                       ),
-                                      boxShadow: isCurrent
-                                          ? [
-                                              BoxShadow(
-                                                color: AppColors.primary.withValues(alpha: 0.3),
-                                                blurRadius: 16,
-                                              ),
-                                            ]
-                                          : null,
                                     ),
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -329,18 +316,23 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                                             AlbumArtWidget(
                                               song: song,
                                               size: 122,
-                                              borderRadius: 16,
+                                              borderRadius: 14,
                                             ),
                                             // Rank Badge
                                             Positioned(
                                               top: 6,
                                               right: 6,
                                               child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 7,
+                                                  vertical: 3,
+                                                ),
                                                 decoration: BoxDecoration(
                                                   color: index == 0
                                                       ? Colors.amber
-                                                      : (index == 1 ? Colors.grey.shade300 : AppColors.surfaceElevated),
+                                                      : (index == 1
+                                                          ? Colors.grey.shade300
+                                                          : AppColors.surfaceElevated),
                                                   borderRadius: BorderRadius.circular(8),
                                                 ),
                                                 child: Text(
@@ -358,7 +350,10 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                                               bottom: 6,
                                               left: 6,
                                               child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 6,
+                                                  vertical: 2,
+                                                ),
                                                 decoration: BoxDecoration(
                                                   color: Colors.black.withValues(alpha: 0.8),
                                                   borderRadius: BorderRadius.circular(6),
@@ -366,7 +361,12 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                                                 child: Row(
                                                   mainAxisSize: MainAxisSize.min,
                                                   children: [
-                                                    Icon(Icons.play_arrow_rounded, color: AppColors.primary, size: 12),
+                                                    AppSvgIcon(
+                                                      AppSvgIcons.play,
+                                                      color: accentColor,
+                                                      size: 10,
+                                                    ),
+                                                    const SizedBox(width: 3),
                                                     Text(
                                                       '${song.playCount}',
                                                       style: const TextStyle(
@@ -413,7 +413,7 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                         const SizedBox(height: 28),
                       ],
 
-                      // Section 2: Quick Play Grid (Liquid Glass Tiles)
+                      // Section 2: Quick Play Grid
                       const Text(
                         'تشغيل سريع',
                         style: TextStyle(
@@ -442,13 +442,13 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                             child: Container(
                               decoration: BoxDecoration(
                                 color: isCurrent
-                                    ? AppColors.primary.withValues(alpha: 0.16)
-                                    : Colors.white.withValues(alpha: 0.05),
+                                    ? accentColor.withValues(alpha: 0.14)
+                                    : AppColors.surface,
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
                                   color: isCurrent
-                                      ? AppColors.primary
-                                      : Colors.white.withValues(alpha: 0.14),
+                                      ? accentColor
+                                      : Colors.white.withValues(alpha: 0.08),
                                   width: isCurrent ? 1.5 : 1,
                                 ),
                               ),
@@ -490,7 +490,7 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
 
                       const SizedBox(height: 28),
 
-                      // Section 3: Favorites (Liquid Glass list)
+                      // Section 3: Favorites
                       if (favorites.isNotEmpty) ...[
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -523,16 +523,19 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                               child: InteractiveScaleTap(
                                 onTap: () => provider.playSong(song, queue: favorites),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: isCurrent
-                                        ? AppColors.primary.withValues(alpha: 0.14)
-                                        : Colors.white.withValues(alpha: 0.05),
+                                        ? accentColor.withValues(alpha: 0.12)
+                                        : AppColors.surface,
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
                                       color: isCurrent
-                                          ? AppColors.primary
-                                          : Colors.white.withValues(alpha: 0.12),
+                                          ? accentColor
+                                          : Colors.white.withValues(alpha: 0.08),
                                       width: isCurrent ? 1.5 : 1,
                                     ),
                                   ),
@@ -561,14 +564,20 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
                                             Text(
                                               song.artist,
                                               maxLines: 1,
-                                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                                              style: const TextStyle(
+                                                color: AppColors.textSecondary,
+                                                fontSize: 12,
+                                              ),
                                             ),
                                           ],
                                         ),
                                       ),
                                       Text(
                                         _formatDuration(song.duration),
-                                        style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                                        style: const TextStyle(
+                                          color: AppColors.textMuted,
+                                          fontSize: 12,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -589,48 +598,6 @@ class _HomeViewState extends State<HomeView> with AutomaticKeepAliveClientMixin 
           ),
         );
       },
-    );
-  }
-
-  Widget _buildThemePill(MusicProvider provider, AppThemeStyle style, String label) {
-    final isSelected = provider.themeStyle == style;
-
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => provider.setThemeStyle(style),
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 240),
-          curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            gradient: isSelected
-                ? LinearGradient(colors: AppColors.primaryGradient)
-                : null,
-            color: isSelected ? null : Colors.transparent,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.35),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? AppColors.onPrimary : Colors.white.withValues(alpha: 0.7),
-                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
-                fontSize: 12,
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

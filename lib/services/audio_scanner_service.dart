@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:on_audio_query/on_audio_query.dart' as oaq;
 import 'package:permission_handler/permission_handler.dart';
 import '../models/song_model.dart';
@@ -59,7 +61,9 @@ class AudioScannerService {
     List<SongModel> songs = [];
 
     try {
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      if (kIsWeb) {
+        songs = await _scanFromCompanionServer();
+      } else if (Platform.isAndroid || Platform.isIOS) {
         final hasPermission = await requestPermissions();
         if (!hasPermission) {
           debugPrint('Storage/Audio permission not granted');
@@ -95,7 +99,7 @@ class AudioScannerService {
             );
           }
         }
-      } else if (!kIsWeb && Platform.isWindows) {
+      } else if (Platform.isWindows) {
         songs = await _scanWindowsMusic();
       }
     } catch (e) {
@@ -105,6 +109,9 @@ class AudioScannerService {
     if (songs.isEmpty) {
       songs = _getSampleTracks();
     }
+
+    // Sort newest-first (dateAdded DESC)
+    songs.sort((a, b) => b.dateAdded.compareTo(a.dateAdded));
 
     return songs;
   }
@@ -145,37 +152,87 @@ class AudioScannerService {
     return artist.trim();
   }
 
+  (String, String) _parseArtistAndTitle(String fileName) {
+    final withoutExt = _cleanTitle(fileName);
+    if (withoutExt.contains(' - ')) {
+      final parts = withoutExt.split(' - ');
+      if (parts.length >= 2) {
+        return (parts[0].trim(), parts.sublist(1).join(' - ').trim());
+      }
+    }
+    return ('Local Artist', withoutExt);
+  }
+
+  Future<List<SongModel>> _scanFromCompanionServer({String baseUrl = 'http://localhost:8081'}) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/songs'))
+          .timeout(const Duration(seconds: 4));
+      if (response.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+        final List<SongModel> songs = [];
+        for (final item in list) {
+          if (item is Map<String, dynamic>) {
+            songs.add(SongModel.fromJson(item));
+          }
+        }
+        return songs;
+      }
+    } catch (e) {
+      debugPrint('Companion server not reachable at $baseUrl/api/songs: $e');
+    }
+    return [];
+  }
+
   Future<List<SongModel>> _scanWindowsMusic() async {
     final List<SongModel> songs = [];
     try {
-      final userProfile = Platform.environment['USERPROFILE'];
-      if (userProfile == null) return [];
+      final List<Directory> searchDirs = [];
 
-      final musicDir = Directory('$userProfile\\Music');
-      if (await musicDir.exists()) {
-        final files = musicDir.listSync(recursive: false);
-        int fakeId = 1000;
+      // Primary requirement: E:\music
+      final eMusic = Directory(r'E:\music');
+      if (await eMusic.exists()) {
+        searchDirs.add(eMusic);
+      }
+
+      final userProfile = Platform.environment['USERPROFILE'];
+      if (userProfile != null) {
+        final winMusic = Directory('$userProfile\\Music');
+        if (await winMusic.exists()) {
+          searchDirs.add(winMusic);
+        }
+      }
+
+      for (final dir in searchDirs) {
+        final files = dir.listSync(recursive: true, followLinks: false);
         for (final f in files) {
           if (f is File) {
             final ext = f.path.split('.').last.toLowerCase();
-            if (['mp3', 'm4a', 'flac', 'wav'].contains(ext)) {
+            if (['mp3', 'm4a', 'flac', 'wav', 'aac', 'ogg'].contains(ext)) {
               final fileName = f.uri.pathSegments.last;
+              final (artist, title) = _parseArtistAndTitle(fileName);
+              final stat = f.statSync();
+              final dateAdded = stat.modified.millisecondsSinceEpoch ~/ 1000;
+              final id = (f.path.hashCode & 0x7FFFFFFF);
+
               songs.add(
                 SongModel(
-                  id: fakeId++,
-                  title: _cleanTitle(fileName),
-                  artist: 'Local Music',
-                  album: 'Desktop Music',
+                  id: id,
+                  title: title,
+                  artist: artist,
+                  album: dir.path.toLowerCase().startsWith('e:') ? r'E:\music' : 'Desktop Music',
                   uri: f.path,
                   duration: 210000,
-                  dateAdded: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+                  dateAdded: dateAdded,
                 ),
               );
             }
           }
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error scanning Windows music: $e');
+    }
     return songs;
   }
 

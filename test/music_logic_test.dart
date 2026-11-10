@@ -1,10 +1,15 @@
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:music_player/models/song_model.dart';
 import 'package:music_player/models/playlist_model.dart';
 import 'package:music_player/services/storage_service.dart';
+import 'package:music_player/services/player_service.dart';
+import 'package:music_player/providers/music_provider.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('SongModel Tests', () {
     test('Correctly serializes and deserializes from JSON', () {
       final song = SongModel(
@@ -134,6 +139,123 @@ void main() {
       expect(loaded.length, 1);
       expect(loaded.first.name, 'Chill Evening');
       expect(loaded.first.songIds, [1, 2]);
+    });
+  });
+
+  group('Companion Server & Streaming Model Tests', () {
+    test('Companion server JSON structure parses correctly into SongModel with streaming URI', () {
+      final json = {
+        'id': 439648367,
+        'title': 'DIVA',
+        'artist': 'Abyusif',
+        'album': 'E:\\music',
+        'uri': 'http://localhost:8081/api/stream?file=Abyusif%20-%20DIVA.mp3',
+        'duration': 210000,
+        'dateAdded': 1732898865,
+        'playCount': 0,
+        'lastPlayed': 0,
+        'isFavorite': false,
+      };
+
+      final song = SongModel.fromJson(json);
+      expect(song.id, 439648367);
+      expect(song.title, 'DIVA');
+      expect(song.artist, 'Abyusif');
+      expect(song.album, 'E:\\music');
+      expect(song.uri, startsWith('http://localhost:8081/api/stream'));
+      expect(song.dateAdded, 1732898865);
+    });
+  });
+
+  group('MusicProvider Queue & Newest-First Tests', () {
+    late StorageService storage;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      storage = await StorageService.init();
+    });
+
+    test('prependSong places newly downloaded track at index 0 of allSongs and queue', () async {
+      final provider = MusicProvider(storage);
+      await provider.refreshSongs();
+
+      final newSong = SongModel(
+        id: 9999,
+        title: 'Newest YouTube Download',
+        artist: 'Abyusif',
+        album: 'E:\\music',
+        uri: 'http://localhost:8081/api/stream?file=test.mp3',
+        duration: 210000,
+        dateAdded: 1730000000,
+      );
+
+      provider.prependSong(newSong);
+
+      expect(provider.allSongs.first.id, 9999);
+      expect(provider.allSongs.first.title, 'Newest YouTube Download');
+      expect(provider.currentQueue.first.id, 9999);
+    });
+  });
+
+  group('PlayerService & Crossfade Tests', () {
+    test('Crossfade duration clamps and toggles correctly', () {
+      final playerService = PlayerService();
+      expect(playerService.crossfadeEnabled, true);
+      expect(playerService.crossfadeDuration, const Duration(seconds: 4));
+
+      playerService.setCrossfadeDuration(const Duration(seconds: 8));
+      expect(playerService.crossfadeDuration, const Duration(seconds: 8));
+
+      // Clamps to min 1 and max 12
+      playerService.setCrossfadeDuration(const Duration(seconds: 25));
+      expect(playerService.crossfadeDuration, const Duration(seconds: 12));
+
+      playerService.setCrossfadeDuration(Duration.zero);
+      expect(playerService.crossfadeDuration, const Duration(seconds: 1));
+
+      playerService.setCrossfadeEnabled(false);
+      expect(playerService.crossfadeEnabled, false);
+
+      playerService.dispose();
+    });
+
+    test('Strict constraint: Zero equalizer controls in PlayerService and codebase', () {
+      final playerService = PlayerService();
+      expect(playerService.player, isNotNull);
+      playerService.dispose();
+
+      // Concrete verification: scan lib/ and bin/ for forbidden equalizer keywords
+      final projectDir = Directory.current;
+      final dirsToScan = [
+        Directory('${projectDir.path}${Platform.pathSeparator}lib'),
+        Directory('${projectDir.path}${Platform.pathSeparator}bin'),
+      ];
+
+      final forbiddenKeywords = [
+        'equalizer',
+        'equalise',
+        'equalize',
+        'audiofilter',
+        'soundpreset',
+      ];
+
+      final violations = <String>[];
+      for (final dir in dirsToScan) {
+        if (!dir.existsSync()) continue;
+        final files = dir.listSync(recursive: true).whereType<File>();
+        for (final file in files) {
+          if (!file.path.endsWith('.dart')) continue;
+          final content = file.readAsStringSync().toLowerCase();
+          for (final kw in forbiddenKeywords) {
+            if (content.contains(kw)) {
+              violations.add('${file.path} contains forbidden keyword "$kw"');
+            }
+          }
+        }
+      }
+
+      expect(violations, isEmpty,
+          reason: 'Strict negative constraint violated: no equalizer code allowed');
     });
   });
 }
