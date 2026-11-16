@@ -42,6 +42,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -140,6 +141,8 @@ fun LibraryScreen(
     isPageActive: Boolean = true
 ) {
     var subTab by remember { mutableStateOf(LibrarySubTab.ALL_SONGS) }
+    val allSongsListState = rememberLazyListState()
+    val favListState = rememberLazyListState()
     var searchQuery by remember { mutableStateOf("") }
     var isSearchOpen by remember { mutableStateOf(false) }
     var sortOption by remember { mutableStateOf(SortOption.RECENT) }
@@ -250,6 +253,7 @@ fun LibraryScreen(
                             }
                         } else {
                             LazyColumn(
+                                state = allSongsListState,
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = listPadding,
                                 verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -282,6 +286,7 @@ fun LibraryScreen(
                             }
                         } else {
                             LazyColumn(
+                                state = favListState,
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = listPadding,
                                 verticalArrangement = Arrangement.spacedBy(2.dp)

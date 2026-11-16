@@ -13,6 +13,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
@@ -22,8 +23,11 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -39,8 +43,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Folder
@@ -186,9 +188,7 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
         }
     }
 
-    val pagerState = rememberPagerState(initialPage = MainTab.LIBRARY.ordinal, pageCount = { MainTab.entries.size })
-    val coroutineScope = rememberCoroutineScope()
-    val currentTab = MainTab.entries[pagerState.currentPage]
+    var currentTab by remember { mutableStateOf(MainTab.LIBRARY) }
     var showFullPlayer by remember { mutableStateOf(false) }
     var menuTrack by remember { mutableStateOf<Track?>(null) }
     var detailsTrack by remember { mutableStateOf<Track?>(null) }
@@ -197,13 +197,8 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
     BackHandler(enabled = showFullPlayer) {
         showFullPlayer = false
     }
-    BackHandler(enabled = !showFullPlayer && pagerState.currentPage != MainTab.LIBRARY.ordinal) {
-        coroutineScope.launch {
-            pagerState.animateScrollToPage(
-                page = MainTab.LIBRARY.ordinal,
-                animationSpec = tween(220, easing = FastOutSlowInEasing)
-            )
-        }
+    BackHandler(enabled = !showFullPlayer && currentTab != MainTab.LIBRARY) {
+        currentTab = MainTab.LIBRARY
     }
 
     // Keep RTL direction consistent across both Arabic and English UI languages
@@ -289,12 +284,20 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                 )
 
                 Box(modifier = Modifier.fillMaxSize()) {
-                    HorizontalPager(
-                        state = pagerState,
-                        beyondViewportPageCount = 2,
+                    AnimatedContent(
+                        targetState = currentTab,
+                        transitionSpec = {
+                            val forward = targetState.ordinal >= initialState.ordinal
+                            val dir = if (forward) 1 else -1
+                            (slideInHorizontally(tween(220, easing = FastOutSlowInEasing)) { dir * it / 8 } + fadeIn(tween(180)))
+                                .togetherWith(
+                                    slideOutHorizontally(tween(180, easing = FastOutSlowInEasing)) { -dir * it / 8 } + fadeOut(tween(140))
+                                )
+                        },
+                        label = "mainTabTransition",
                         modifier = Modifier.fillMaxSize()
-                    ) { page ->
-                        when (MainTab.entries[page]) {
+                    ) { activeTab ->
+                        when (activeTab) {
                             MainTab.LIBRARY -> LibraryScreen(
                                 strings = strings,
                                 tracks = activeTracks,
@@ -316,7 +319,7 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                                 onDeletePlaylist = { viewModel.deletePlaylist(it) },
                                 onRemoveFromPlaylist = { plId, tId -> viewModel.removeTrackFromPlaylist(plId, tId) },
                                 bottomPadding = listBottomPad,
-                                isPageActive = pagerState.currentPage == MainTab.LIBRARY.ordinal
+                                isPageActive = activeTab == MainTab.LIBRARY
                             )
 
                             MainTab.ARTISTS -> ArtistsAlbumsScreen(
@@ -334,7 +337,7 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                                 onToggleFavorite = { viewModel.toggleFavorite(it) },
                                 onMoreClick = { menuTrack = it },
                                 bottomPadding = listBottomPad,
-                                isPageActive = pagerState.currentPage == MainTab.ARTISTS.ordinal
+                                isPageActive = activeTab == MainTab.ARTISTS
                             )
 
                             MainTab.SETTINGS -> SettingsScreen(
@@ -415,12 +418,7 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                                     .clip(RoundedCornerShape(50))
                                     .background(if (selected) NocturneColors.WaterDropPillBg else Color.Transparent)
                                     .clickable {
-                                        coroutineScope.launch {
-                                            pagerState.animateScrollToPage(
-                                                page = tab.ordinal,
-                                                animationSpec = tween(220, easing = FastOutSlowInEasing)
-                                            )
-                                        }
+                                        currentTab = tab
                                     },
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center

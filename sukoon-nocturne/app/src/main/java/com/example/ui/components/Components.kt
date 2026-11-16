@@ -119,6 +119,7 @@ fun TrackArtwork(
                 model = remember(validUri) {
                     ImageRequest.Builder(context)
                         .data(validUri)
+                        .size(128, 128)
                         .memoryCacheKey(validUri)
                         .diskCacheKey(validUri)
                         .crossfade(false)

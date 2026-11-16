@@ -37,6 +37,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -117,6 +118,9 @@ fun ArtistsAlbumsScreen(
     var selectedTab by remember { mutableStateOf(ArtistsAlbumsTab.ARTISTS) }
     var selectedArtist by remember { mutableStateOf<Artist?>(null) }
     var selectedAlbum by remember { mutableStateOf<Album?>(null) }
+
+    val artistsGridState = rememberLazyGridState()
+    val albumsGridState = rememberLazyGridState()
 
     var searchQuery by remember { mutableStateOf("") }
     var isSearchOpen by remember { mutableStateOf(false) }
@@ -244,6 +248,7 @@ fun ArtistsAlbumsScreen(
                             )
                         } else {
                             LazyVerticalGrid(
+                                state = artistsGridState,
                                 columns = GridCells.Fixed(2),
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(
@@ -278,6 +283,7 @@ fun ArtistsAlbumsScreen(
                             )
                         } else {
                             LazyVerticalGrid(
+                                state = albumsGridState,
                                 columns = GridCells.Fixed(2),
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(
@@ -529,8 +535,8 @@ private fun ArtistGridItem(
                     model = remember(photo) {
                         ImageRequest.Builder(context)
                             .data(photo)
-                            .size(200)
-                            .crossfade(true)
+                            .size(200, 200)
+                            .crossfade(false)
                             .build()
                     },
                     contentDescription = artist.name,
@@ -623,8 +629,8 @@ private fun AlbumGridItem(
                     model = remember(displayArt) {
                         ImageRequest.Builder(context)
                             .data(displayArt)
-                            .size(240)
-                            .crossfade(true)
+                            .size(240, 240)
+                            .crossfade(false)
                             .build()
                     },
                     contentDescription = album.title,

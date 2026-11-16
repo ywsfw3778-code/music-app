@@ -167,41 +167,15 @@ private fun Modifier.pureWaterGlass(
     }
 }
 
-fun Modifier.openTopGlassFade(): Modifier = composed {
-    val glass = LocalWaterGlassState.current
-    val itemOffset = remember { OffsetHolder() }
-    this
-        .onGloballyPositioned { coords ->
-            val pos = coords.positionInWindow()
-            if (itemOffset.offset != pos) {
-                itemOffset.offset = pos
-            }
-        }
-        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-        .drawBehind {
-            if (glass != null) {
-                drawPositionedGlassLayer(glass, itemOffset.offset, bgOnly = true)
-            }
-            // Gentle translucent tint matching the rest of the app so album ambient colors show through vibrantly
-            val topAlpha = if (glass?.blurEnabled == false) 0.45f else 0.28f
-            val midAlpha = if (glass?.blurEnabled == false) 0.35f else 0.18f
-            drawRect(
-                Brush.verticalGradient(
-                    0.0f to Color.Black.copy(alpha = topAlpha),
-                    0.72f to Color.Black.copy(alpha = midAlpha),
-                    1.0f to Color.Transparent
-                )
-            )
-            drawRect(
-                brush = Brush.verticalGradient(
-                    0.0f to Color.Black,
-                    0.72f to Color.Black,
-                    0.92f to Color.Black.copy(alpha = 0.40f),
-                    1.0f to Color.Transparent
-                ),
-                blendMode = BlendMode.DstIn
-            )
-        }
+fun Modifier.openTopGlassFade(): Modifier = this.drawBehind {
+    drawRect(
+        Brush.verticalGradient(
+            0.0f to Color(0xF207080C),
+            0.55f to Color(0xD007080C),
+            0.80f to Color(0x7007080C),
+            1.0f to Color.Transparent
+        )
+    )
 }
 
 fun Modifier.matteCard(
