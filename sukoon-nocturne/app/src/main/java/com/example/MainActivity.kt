@@ -116,6 +116,7 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
     val excludedTracks by viewModel.excludedTracks.collectAsState()
     val artists by viewModel.artists.collectAsState()
     val albums by viewModel.albums.collectAsState()
+    val artistPhotos by viewModel.artistPhotos.collectAsState()
     val folderItems by viewModel.folderItems.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
     val favoriteIds by viewModel.favoriteIds.collectAsState()
@@ -324,6 +325,7 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                                 currentTrackId = currentTrack?.id,
                                 isPlaying = isPlaying,
                                 accentColor = accentColor,
+                                artistPhotos = artistPhotos,
                                 onPlayTrack = { t, list -> viewModel.playTrack(t, list) },
                                 onToggleFavorite = { viewModel.toggleFavorite(it) },
                                 onMoreClick = { menuTrack = it },

@@ -34,6 +34,7 @@ import com.example.model.SortOption
 import com.example.model.StringsProvider
 import com.example.model.Track
 import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -173,6 +174,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         audioRepo.getFolderItems(all, cfg.excludedFolderPaths)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    private val _artistPhotos = MutableStateFlow<Map<String, String>>(emptyMap())
+    val artistPhotos: StateFlow<Map<String, String>> = _artistPhotos.asStateFlow()
+
     private val _currentTrack = MutableStateFlow<Track?>(null)
     val currentTrack: StateFlow<Track?> = _currentTrack.asStateFlow()
 
@@ -242,6 +246,23 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
         connectController()
         startProgressLoop()
+        startArtistPhotoResolver()
+    }
+
+    private fun startArtistPhotoResolver() {
+        viewModelScope.launch(Dispatchers.IO) {
+            artists.collect { list ->
+                val ctx = getApplication<Application>()
+                for (a in list) {
+                    if (a.name.isBlank() || a.name == "Unknown Artist") continue
+                    if (_artistPhotos.value.containsKey(a.name)) continue
+                    val photoUri = com.example.data.OnlineMetadataResolver.resolveArtistPhoto(ctx, a.name)
+                    if (!photoUri.isNullOrBlank()) {
+                        _artistPhotos.value = _artistPhotos.value + (a.name to photoUri)
+                    }
+                }
+            }
+        }
     }
 
     private fun connectController() {

@@ -159,11 +159,8 @@ class AudioRepository(private val context: Context) {
                 val folderPath = parentFile?.absolutePath ?: "/"
                 val folderName = parentFile?.name ?: "Music"
 
-                val baseTitle = rawTitle.ifBlank { fileName.substringBeforeLast('.') }
-                val initialArtist = if (rawArtist.isBlank() || rawArtist.equals("<unknown>", true)) "فنان غير معروف" else rawArtist
-                val artist = ArtistNormalizer.normalizeArtist(initialArtist)
-                val title = ArtistNormalizer.cleanTrackTitle(baseTitle, artist)
-                val album = if (rawAlbum.isBlank() || rawAlbum.equals("<unknown>", true)) "ألبوم غير محدد" else rawAlbum
+                val (artist, title) = ArtistNormalizer.resolveArtistAndTitle(rawTitle, rawArtist, fileName)
+                val album = if (rawAlbum.isBlank() || rawAlbum.equals("<unknown>", true)) "Unknown Album" else rawAlbum
 
                 val contentUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, mediaId).toString()
 
@@ -247,15 +244,19 @@ class AudioRepository(private val context: Context) {
             val list = ArrayList<Track>(array.length())
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
+                val rawTitle = obj.getString("title")
+                val rawArtist = obj.getString("artist")
+                val fileName = obj.getString("name")
+                val (artist, title) = ArtistNormalizer.resolveArtistAndTitle(rawTitle, rawArtist, fileName)
                 list.add(
                     Track(
                         id = obj.getString("id"),
                         contentUri = obj.getString("uri"),
-                        title = obj.getString("title"),
-                        artist = obj.getString("artist"),
+                        title = title,
+                        artist = artist,
                         album = obj.getString("album"),
                         durationSec = obj.getDouble("dur"),
-                        fileName = obj.getString("name"),
+                        fileName = fileName,
                         folderPath = obj.getString("path"),
                         folderName = obj.getString("fname"),
                         sizeBytes = obj.getLong("size"),

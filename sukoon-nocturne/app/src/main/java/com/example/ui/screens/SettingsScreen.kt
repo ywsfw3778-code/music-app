@@ -133,6 +133,7 @@ fun SettingsScreen(
     var keywordInput by remember { mutableStateOf("") }
     var showClearDialog by remember { mutableStateOf(false) }
     var showExcludedPage by remember { mutableStateOf(false) }
+    var showFoldersPage by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -432,130 +433,51 @@ fun SettingsScreen(
                     fontSize = 12.sp
                 )
                 Spacer(Modifier.height(12.dp))
-
-                if (folderItems.isNotEmpty()) {
-                    val allPaths = remember(folderItems) { folderItems.map { it.path }.toSet() }
-                    val allIncluded = folderItems.none { it.isExcluded }
-
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color.White.copy(alpha = 0.06f))
+                        .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(14.dp))
+                        .clickable { showFoldersPage = true }
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text(
-                            text = if (strings.isRtl) "${folderItems.size} مجلدات" else "${folderItems.size} folders",
-                            color = Color.White,
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.Bold
-                        )
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(accentColor.copy(alpha = 0.14f))
-                                .clickable {
-                                    onSetAllFoldersExcluded(allPaths, allIncluded)
-                                }
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(accentColor.copy(alpha = 0.16f)),
+                            contentAlignment = Alignment.Center
                         ) {
+                            Icon(Icons.Rounded.Folder, null, tint = accentColor, modifier = Modifier.size(17.dp))
+                        }
+                        Column {
                             Text(
-                                text = if (allIncluded) strings.deselectAll else strings.selectAll,
-                                color = accentColor,
-                                fontSize = 11.5.sp,
+                                text = if (strings.isRtl) "إدارة مجلدات الموسيقى" else "Manage Music Folders",
+                                color = Color.White,
+                                fontSize = 13.5.sp,
                                 fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = if (strings.isRtl) "${folderItems.count { !it.isExcluded }} مجلد مفعل من أصل ${folderItems.size}"
+                                else "${folderItems.count { !it.isExcluded }} active of ${folderItems.size} folders",
+                                color = NocturneColors.TextSecondary,
+                                fontSize = 11.5.sp
                             )
                         }
                     }
-
-                    Spacer(Modifier.height(10.dp))
-
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        folderItems.forEach { folder ->
-                            val isIncluded = !folder.isExcluded
-                            val relPath = folder.path.removePrefix("/storage/emulated/0/").ifBlank { folder.name }
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(Color.White.copy(alpha = 0.05f))
-                                    .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
-                                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(
-                                    modifier = Modifier.weight(1f),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(
-                                                if (isIncluded) accentColor.copy(alpha = 0.18f)
-                                                else Color.White.copy(alpha = 0.08f)
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Folder,
-                                            contentDescription = null,
-                                            tint = if (isIncluded) accentColor else NocturneColors.TextMuted,
-                                            modifier = Modifier.size(19.dp)
-                                        )
-                                    }
-
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                        ) {
-                                            Text(
-                                                text = folder.name,
-                                                color = Color.White,
-                                                fontSize = 13.5.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                            Box(
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(50))
-                                                    .background(Color.White.copy(alpha = 0.08f))
-                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                                            ) {
-                                                Text(
-                                                    text = "${folder.trackCount}",
-                                                    color = accentColor,
-                                                    fontSize = 10.5.sp,
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                            }
-                                        }
-                                        Spacer(Modifier.height(2.dp))
-                                        Text(
-                                            text = relPath,
-                                            color = NocturneColors.TextMuted,
-                                            fontSize = 11.sp,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                }
-
-                                Spacer(Modifier.width(10.dp))
-
-                                GlassSwitch(
-                                    checked = isIncluded,
-                                    accentColor = accentColor,
-                                    onCheckedChange = { onToggleExcludedFolder(folder.path) }
-                                )
-                            }
-                        }
-                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = accentColor,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }
@@ -736,6 +658,22 @@ fun SettingsScreen(
             bottomPadding = bottomPadding,
             onRestoreTrack = onRestoreTrack,
             onClose = { showExcludedPage = false }
+        )
+    }
+
+    AnimatedVisibility(
+        visible = showFoldersPage,
+        enter = slideInHorizontally { it } + fadeIn(tween(200)),
+        exit = slideOutHorizontally { it } + fadeOut(tween(180))
+    ) {
+        MusicFoldersPage(
+            folderItems = folderItems,
+            strings = strings,
+            accentColor = accentColor,
+            bottomPadding = bottomPadding,
+            onToggleExcludedFolder = onToggleExcludedFolder,
+            onSetAllFoldersExcluded = onSetAllFoldersExcluded,
+            onClose = { showFoldersPage = false }
         )
     }
 }
@@ -1290,6 +1228,244 @@ private fun ExcludedTracksPage(
                                 )
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MusicFoldersPage(
+    folderItems: List<FolderItem>,
+    strings: AppStrings,
+    accentColor: Color,
+    bottomPadding: PaddingValues,
+    onToggleExcludedFolder: (String) -> Unit,
+    onSetAllFoldersExcluded: (Set<String>, Boolean) -> Unit,
+    onClose: () -> Unit
+) {
+    BackHandler(enabled = true, onBack = onClose)
+
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredFolders = remember(folderItems, searchQuery) {
+        val q = searchQuery.trim()
+        if (q.isEmpty()) folderItems
+        else folderItems.filter {
+            it.name.contains(q, ignoreCase = true) || it.path.contains(q, ignoreCase = true)
+        }
+    }
+
+    val allPaths = remember(folderItems) { folderItems.map { it.path }.toSet() }
+    val allIncluded = folderItems.isNotEmpty() && folderItems.none { it.isExcluded }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(NocturneColors.Black)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp)
+        ) {
+            Spacer(Modifier.height(10.dp))
+
+            // Header Row: Back button + Title & Count
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onClose,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.08f))
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = strings.musicFoldersSection,
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        text = if (strings.isRtl) "${folderItems.count { !it.isExcluded }} مجلد مفعل من أصل ${folderItems.size}"
+                        else "${folderItems.count { !it.isExcluded }} active of ${folderItems.size} folders",
+                        color = NocturneColors.TextSecondary,
+                        fontSize = 12.sp
+                    )
+                }
+
+                // Select/Deselect All button
+                if (folderItems.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(accentColor.copy(alpha = 0.14f))
+                            .clickable {
+                                onSetAllFoldersExcluded(allPaths, allIncluded)
+                            }
+                            .padding(horizontal = 12.dp, vertical = 7.dp)
+                    ) {
+                        Text(
+                            text = if (allIncluded) strings.deselectAll else strings.selectAll,
+                            color = accentColor,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // Search Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.White.copy(alpha = 0.08f))
+                    .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(50))
+                    .padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Search,
+                    contentDescription = null,
+                    tint = NocturneColors.TextMuted,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                BasicTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    singleLine = true,
+                    textStyle = TextStyle(color = Color.White, fontSize = 13.5.sp, fontFamily = AppFontFamily),
+                    cursorBrush = SolidColor(accentColor),
+                    decorationBox = { inner ->
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                            if (searchQuery.isEmpty()) {
+                                Text(
+                                    text = if (strings.isRtl) "ابحث في المجلدات..." else "Search folders...",
+                                    color = NocturneColors.TextMuted,
+                                    fontSize = 13.sp
+                                )
+                            }
+                            inner()
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Rounded.Close, null, tint = NocturneColors.TextMuted, modifier = Modifier.size(14.dp))
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // Folders List
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = bottomPadding.calculateBottomPadding() + 24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(filteredFolders, key = { it.path }) { folder ->
+                    val isIncluded = !folder.isExcluded
+                    val relPath = folder.path.removePrefix("/storage/emulated/0/").ifBlank { folder.name }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color.White.copy(alpha = 0.05f))
+                            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(
+                                        if (isIncluded) accentColor.copy(alpha = 0.18f)
+                                        else Color.White.copy(alpha = 0.08f)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Folder,
+                                    contentDescription = null,
+                                    tint = if (isIncluded) accentColor else NocturneColors.TextMuted,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = folder.name,
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(50))
+                                            .background(Color.White.copy(alpha = 0.08f))
+                                            .padding(horizontal = 7.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = "${folder.trackCount}",
+                                            color = accentColor,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = relPath,
+                                    color = NocturneColors.TextMuted,
+                                    fontSize = 11.5.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.width(12.dp))
+
+                        GlassSwitch(
+                            checked = isIncluded,
+                            accentColor = accentColor,
+                            onCheckedChange = { onToggleExcludedFolder(folder.path) }
+                        )
                     }
                 }
             }

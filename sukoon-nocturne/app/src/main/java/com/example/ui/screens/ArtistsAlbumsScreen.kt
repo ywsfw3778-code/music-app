@@ -101,6 +101,7 @@ fun ArtistsAlbumsScreen(
     currentTrackId: String?,
     isPlaying: Boolean,
     accentColor: Color,
+    artistPhotos: Map<String, String> = emptyMap(),
     onPlayTrack: (Track, List<Track>) -> Unit,
     onToggleFavorite: (String) -> Unit,
     onMoreClick: (Track) -> Unit,
@@ -170,6 +171,7 @@ fun ArtistsAlbumsScreen(
                     }
                     ArtistDetailView(
                         artist = artist,
+                        artistPhotoUrl = artistPhotos[artist.name],
                         tracks = artistTracks,
                         strings = strings,
                         currentTrackId = currentTrackId,
@@ -231,6 +233,7 @@ fun ArtistsAlbumsScreen(
                             items(filteredArtists, key = { it.name }) { artist ->
                                 ArtistGridItem(
                                     artist = artist,
+                                    artistPhotoUrl = artistPhotos[artist.name],
                                     strings = strings,
                                     accentColor = accentColor,
                                     onClick = { selectedArtist = artist }
@@ -466,11 +469,13 @@ fun ArtistsAlbumsScreen(
 @Composable
 private fun ArtistGridItem(
     artist: Artist,
+    artistPhotoUrl: String?,
     strings: AppStrings,
     accentColor: Color,
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val photo = artistPhotoUrl?.takeIf { it.isNotBlank() } ?: artist.artUri
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -492,11 +497,11 @@ private fun ArtistGridItem(
                 .border(1.5.dp, Color.White.copy(alpha = 0.18f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            if (!artist.artUri.isNullOrBlank()) {
+            if (!photo.isNullOrBlank()) {
                 AsyncImage(
-                    model = remember(artist.artUri) {
+                    model = remember(photo) {
                         ImageRequest.Builder(context)
-                            .data(artist.artUri)
+                            .data(photo)
                             .size(200)
                             .crossfade(true)
                             .build()
@@ -645,6 +650,7 @@ private fun AlbumGridItem(
 @Composable
 private fun ArtistDetailView(
     artist: Artist,
+    artistPhotoUrl: String?,
     tracks: List<Track>,
     strings: AppStrings,
     currentTrackId: String?,
@@ -659,6 +665,7 @@ private fun ArtistDetailView(
     bottomPadding: PaddingValues
 ) {
     val context = LocalContext.current
+    val photo = artistPhotoUrl?.takeIf { it.isNotBlank() } ?: artist.artUri
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
@@ -715,11 +722,11 @@ private fun ArtistDetailView(
                         .border(2.dp, Color.White.copy(alpha = 0.22f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (!artist.artUri.isNullOrBlank()) {
+                    if (!photo.isNullOrBlank()) {
                         AsyncImage(
-                            model = remember(artist.artUri) {
+                            model = remember(photo) {
                                 ImageRequest.Builder(context)
-                                    .data(artist.artUri)
+                                    .data(photo)
                                     .size(240)
                                     .crossfade(true)
                                     .build()

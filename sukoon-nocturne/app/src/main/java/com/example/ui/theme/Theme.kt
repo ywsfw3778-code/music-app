@@ -189,8 +189,8 @@ private fun Modifier.pureWaterGlass(
     if (glass != null) {
         base.drawBehind {
             drawPositionedGlassLayer(glass, itemOffset.offset, bgOnly)
-            if (!bgOnly) {
-                drawRect(if (glass.blurEnabled) Color(0x47080A10) else Color(0x66080A10))
+            if (!bgOnly && !glass.blurEnabled) {
+                drawRect(Color(0x55080A10))
             }
             if (waterSheen != Color.Transparent) {
                 drawRect(waterSheen)
