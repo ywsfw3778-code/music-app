@@ -117,6 +117,7 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
     val artists by viewModel.artists.collectAsState()
     val albums by viewModel.albums.collectAsState()
     val artistPhotos by viewModel.artistPhotos.collectAsState()
+    val albumArt by viewModel.albumArt.collectAsState()
     val folderItems by viewModel.folderItems.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
     val favoriteIds by viewModel.favoriteIds.collectAsState()
@@ -326,6 +327,7 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                                 isPlaying = isPlaying,
                                 accentColor = accentColor,
                                 artistPhotos = artistPhotos,
+                                albumArt = albumArt,
                                 onPlayTrack = { t, list -> viewModel.playTrack(t, list) },
                                 onToggleFavorite = { viewModel.toggleFavorite(it) },
                                 onMoreClick = { menuTrack = it },

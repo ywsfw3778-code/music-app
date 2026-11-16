@@ -155,6 +155,72 @@ object ArtistNormalizer {
 
     private val leadingTrackNumberRegex = Regex("""^(\d{1,3}[\s.\-_]+)""")
 
+    private val junkAlbumNames = setOf(
+        "unknown album", "unknown", "<unknown>", "ألبوم غير محدد", "single", "singles",
+        "telegram", "telegram audio", "music", "tracks", "download", "movies", "camera",
+        "sofascore", "call recordings", "meeting recordings", "standard recordings",
+        "notifications", "whatsapp", "snaptube audio", "instagram", "screenshots",
+        "instagold", "converted_audio", "xigncode", "g", "jly3", "audio", "sound", "sounds"
+    )
+
+    private val albumJunkPatterns = listOf(
+        "t.me", ".com", "telegram", "http", "dndnha", "official video", "official audio",
+        "slowed", "reverb", "كوكتيل", "أفضل أغانى", "للمونتاج", "prod.", "prod by",
+        "music video", "mashup"
+    )
+
+    /**
+     * Identifies whether an album tag is fake, junk, single duplicate, or an artist name.
+     */
+    fun isFakeOrJunkAlbum(
+        album: String?,
+        artist: String?,
+        trackCount: Int,
+        trackTitle: String? = null,
+        fileName: String? = null
+    ): Boolean {
+        if (album.isNullOrBlank()) return true
+        val alb = album.trim().lowercase()
+        if (alb.length < 2 || alb in junkAlbumNames) return true
+
+        for (pattern in albumJunkPatterns) {
+            if (alb.contains(pattern)) return true
+        }
+
+        val normArtist = normalizeArtist(artist).lowercase()
+        val normAlb = normalizeArtist(album).lowercase()
+
+        // If the album tag is literally an artist name or alias
+        if (alb == normArtist || normAlb == normArtist || lookupAlias(album) != null) {
+            return true
+        }
+
+        // Check if album is compound artist name like "Abyusif I أبيوسف" or "Marwan Pablo - ..."
+        if (alb.contains(" - ") || alb.contains(" | ") || alb.contains(" i ") || alb.contains(" / ")) {
+            val parts = alb.split(Regex("""\s*[-|/iI]\s*"""))
+            if (parts.any { p -> lookupAlias(p.trim()) != null || p.trim() == normArtist }) {
+                return true
+            }
+        }
+
+        // If single track, check if album was auto-populated from title or file name
+        if (trackCount == 1) {
+            val titleClean = trackTitle?.trim()?.lowercase().orEmpty()
+            val fileClean = fileName?.trim()?.lowercase().orEmpty()
+            if (alb == titleClean || titleClean.startsWith(alb) || alb.startsWith(titleClean)) {
+                return true
+            }
+            if (fileClean.contains(alb)) {
+                return true
+            }
+            if (alb.length > 4 && (titleClean.contains(alb) || alb.contains(titleClean))) {
+                return true
+            }
+        }
+
+        return false
+    }
+
     /**
      * Normalizes artist name, ensuring clean English canonical names (e.g. "أبيوسف" -> "Abyusif").
      */

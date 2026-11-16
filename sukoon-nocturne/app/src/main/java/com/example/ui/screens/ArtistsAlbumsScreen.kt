@@ -102,6 +102,7 @@ fun ArtistsAlbumsScreen(
     isPlaying: Boolean,
     accentColor: Color,
     artistPhotos: Map<String, String> = emptyMap(),
+    albumArt: Map<String, String> = emptyMap(),
     onPlayTrack: (Track, List<Track>) -> Unit,
     onToggleFavorite: (String) -> Unit,
     onMoreClick: (Track) -> Unit,
@@ -194,6 +195,7 @@ fun ArtistsAlbumsScreen(
                     }
                     AlbumDetailView(
                         album = album,
+                        albumArtUrl = albumArt[album.id] ?: album.artUri,
                         tracks = albumTracks,
                         strings = strings,
                         currentTrackId = currentTrackId,
@@ -267,6 +269,7 @@ fun ArtistsAlbumsScreen(
                             items(filteredAlbums, key = { it.id }) { album ->
                                 AlbumGridItem(
                                     album = album,
+                                    albumArtUrl = albumArt[album.id] ?: album.artUri,
                                     strings = strings,
                                     accentColor = accentColor,
                                     onClick = { selectedAlbum = album }
@@ -562,11 +565,13 @@ private fun ArtistGridItem(
 @Composable
 private fun AlbumGridItem(
     album: Album,
+    albumArtUrl: String?,
     strings: AppStrings,
     accentColor: Color,
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val displayArt = albumArtUrl ?: album.artUri
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -589,11 +594,11 @@ private fun AlbumGridItem(
                 .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(16.dp)),
             contentAlignment = Alignment.Center
         ) {
-            if (!album.artUri.isNullOrBlank()) {
+            if (!displayArt.isNullOrBlank()) {
                 AsyncImage(
-                    model = remember(album.artUri) {
+                    model = remember(displayArt) {
                         ImageRequest.Builder(context)
-                            .data(album.artUri)
+                            .data(displayArt)
                             .size(240)
                             .crossfade(true)
                             .build()
@@ -816,8 +821,10 @@ private fun ArtistDetailView(
 
         // Track items
         items(tracks, key = { it.id }) { track ->
+            val trackArt = track.artUri?.takeIf { !it.startsWith("track_art://") }
+                ?: photo
             TrackRowItem(
-                track = track,
+                track = if (trackArt != track.artUri) track.copy(artUri = trackArt) else track,
                 isCurrent = track.id == currentTrackId,
                 isPlaying = isPlaying,
                 isFavorite = favoriteIds.contains(track.id),
@@ -833,6 +840,7 @@ private fun ArtistDetailView(
 @Composable
 private fun AlbumDetailView(
     album: Album,
+    albumArtUrl: String?,
     tracks: List<Track>,
     strings: AppStrings,
     currentTrackId: String?,
@@ -847,6 +855,7 @@ private fun AlbumDetailView(
     bottomPadding: PaddingValues
 ) {
     val context = LocalContext.current
+    val bannerArt = albumArtUrl ?: album.artUri
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
@@ -903,11 +912,11 @@ private fun AlbumDetailView(
                         .border(1.5.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(20.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (!album.artUri.isNullOrBlank()) {
+                    if (!bannerArt.isNullOrBlank()) {
                         AsyncImage(
-                            model = remember(album.artUri) {
+                            model = remember(bannerArt) {
                                 ImageRequest.Builder(context)
-                                    .data(album.artUri)
+                                    .data(bannerArt)
                                     .size(280)
                                     .crossfade(true)
                                     .build()
@@ -1005,8 +1014,10 @@ private fun AlbumDetailView(
 
         // Track items
         items(tracks, key = { it.id }) { track ->
+            val trackArt = track.artUri?.takeIf { !it.startsWith("track_art://") }
+                ?: bannerArt
             TrackRowItem(
-                track = track,
+                track = if (trackArt != track.artUri) track.copy(artUri = trackArt) else track,
                 isCurrent = track.id == currentTrackId,
                 isPlaying = isPlaying,
                 isFavorite = favoriteIds.contains(track.id),
