@@ -94,13 +94,6 @@ fun TrackArtwork(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val resolvedUri by produceState<String?>(
-        initialValue = if (artUri != null && !artUri.startsWith("track_art://")) artUri else null,
-        key1 = artUri
-    ) {
-        value = AudioRepository.resolveArtUri(context, artUri)
-    }
-
     val shape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
     val bgBrush = remember(accentColor) {
         Brush.linearGradient(
@@ -110,6 +103,10 @@ fun TrackArtwork(
             )
         )
     }
+    val validUri = remember(artUri) {
+        if (!artUri.isNullOrBlank() && !artUri.startsWith("track_art://")) artUri else null
+    }
+
     Box(
         modifier = modifier
             .size(size)
@@ -117,33 +114,27 @@ fun TrackArtwork(
             .background(bgBrush),
         contentAlignment = Alignment.Center
     ) {
-        Crossfade(
-            targetState = resolvedUri,
-            animationSpec = tween(280),
-            label = "trackArtCrossfade"
-        ) { uri ->
-            if (!uri.isNullOrBlank()) {
-                AsyncImage(
-                    model = remember(uri) {
-                        ImageRequest.Builder(context)
-                            .data(uri)
-                            .memoryCacheKey(uri)
-                            .diskCacheKey(uri)
-                            .crossfade(true)
-                            .build()
-                    },
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Rounded.MusicNote,
-                    contentDescription = null,
-                    tint = accentColor.copy(alpha = 0.55f),
-                    modifier = Modifier.size(size * 0.45f)
-                )
-            }
+        if (validUri != null) {
+            AsyncImage(
+                model = remember(validUri) {
+                    ImageRequest.Builder(context)
+                        .data(validUri)
+                        .memoryCacheKey(validUri)
+                        .diskCacheKey(validUri)
+                        .crossfade(false)
+                        .build()
+                },
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Rounded.MusicNote,
+                contentDescription = null,
+                tint = accentColor.copy(alpha = 0.55f),
+                modifier = Modifier.size(size * 0.45f)
+            )
         }
     }
 }
@@ -159,11 +150,7 @@ fun TrackRowItem(
     onToggleFavorite: () -> Unit,
     onMoreClick: () -> Unit
 ) {
-    val rowBg by animateColorAsState(
-        targetValue = if (isCurrent) Color.White.copy(alpha = 0.085f) else Color.Transparent,
-        animationSpec = tween(220),
-        label = "rowBg"
-    )
+    val rowBg = if (isCurrent) Color.White.copy(alpha = 0.085f) else Color.Transparent
     val ext = track.fileName.substringAfterLast('.', "MP3").uppercase()
 
     Row(

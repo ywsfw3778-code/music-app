@@ -178,12 +178,10 @@ class AudioRepository(private val context: Context) {
                 val cachedArt = File(artCacheDir, "track_${id}.jpg")
                 val safeKey = "${artist}_${album.trim()}".replace(Regex("[^a-zA-Z0-9_\\-\\u0600-\\u06FF]"), "_")
                 val cachedAlbumArt = File(artCacheDir, "album_${safeKey}.jpg")
-                val noArtMarker = File(artCacheDir, "track_${id}.none")
                 val artUri = when {
                     cachedArt.exists() && cachedArt.length() > 0L -> Uri.fromFile(cachedArt).toString()
                     cachedAlbumArt.exists() && cachedAlbumArt.length() > 0L -> Uri.fromFile(cachedAlbumArt).toString()
-                    noArtMarker.exists() -> null
-                    else -> "track_art://$id?uri=${Uri.encode(contentUri)}&path=${Uri.encode(filePath)}"
+                    else -> null
                 }
 
                 tracks.add(

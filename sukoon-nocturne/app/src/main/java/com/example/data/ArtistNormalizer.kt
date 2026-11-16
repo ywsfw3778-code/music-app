@@ -381,21 +381,37 @@ object ArtistNormalizer {
             }
         }
 
-        // If title has bilingual compound English & Arabic (e.g. "Sa3eed - سعيد", "ElBakht | ويجز - البخت", "BARBARY | مروان بابلو")
+        // If title has bilingual compound English & Arabic (e.g. "Sa3eed - سعيد", "سعيد - Sa3eed", "ElBakht | ويجز - البخت", "BARBARY | مروان بابلو")
         // prefer the clean English title so lyric search matches platforms cleanly
-        if (title.contains('|') || title.contains(" - ")) {
-            val sep = if (title.contains('|')) "|" else " - "
-            val parts = title.split(sep).map { it.trim() }
-            val latinParts = parts.filter { p ->
-                p.any { it in 'a'..'z' || it in 'A'..'Z' } && !p.any { it in '\u0600'..'\u06FF' }
+        val artistAliases = listOfNotNull(artist, lookupAlias(artist.orEmpty()))
+        var working = title
+        if (working.contains('|')) {
+            val segments = working.split('|').map { it.trim() }
+            val nonArtistSegments = segments.filter { seg ->
+                artistAliases.none { a -> seg.equals(a, ignoreCase = true) }
             }
-            if (latinParts.isNotEmpty()) {
-                val candidate = latinParts.first()
-                if (candidate.length >= 2 && !candidate.equals(artist, ignoreCase = true)) {
-                    title = candidate
-                }
+            if (nonArtistSegments.isNotEmpty()) {
+                working = nonArtistSegments.joinToString(" - ")
             }
         }
+        if (working.contains(" - ") || working.contains('-')) {
+            val pieces = working.split(Regex("""\s*[-–—]\s*""")).map { it.trim() }.filter { it.isNotBlank() }
+            val nonArtistPieces = pieces.filter { piece ->
+                artistAliases.none { a -> piece.equals(a, ignoreCase = true) }
+            }
+            val cleanLatin = nonArtistPieces.filter { p ->
+                p.any { it in 'a'..'z' || it in 'A'..'Z' } && !p.any { it in '\u0600'..'\u06FF' }
+            }
+            if (cleanLatin.isNotEmpty()) {
+                val best = cleanLatin.maxByOrNull { it.length } ?: cleanLatin.first()
+                if (best.length >= 2) {
+                    working = best
+                }
+            } else if (nonArtistPieces.isNotEmpty()) {
+                working = nonArtistPieces.first()
+            }
+        }
+        title = working
 
         // Clean up redundant double spaces or trailing dashes
         title = title.replace(Regex("""\s{2,}"""), " ").trim()
