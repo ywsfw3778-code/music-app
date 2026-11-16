@@ -1,15 +1,20 @@
 package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -216,7 +221,17 @@ fun LibraryScreen(
                     )
                 }
             } else {
-                when (subTab) {
+                AnimatedContent(
+                    targetState = subTab,
+                    transitionSpec = {
+                        val forward = targetState.ordinal >= initialState.ordinal
+                        val dir = if (forward) 1 else -1
+                        (slideInHorizontally(tween(260, easing = FastOutSlowInEasing)) { dir * it / 4 } + fadeIn(tween(220)))
+                            .togetherWith(slideOutHorizontally(tween(200, easing = FastOutSlowInEasing)) { -dir * it / 4 } + fadeOut(tween(160)))
+                    },
+                    label = "librarySubTabTransition"
+                ) { currentTab ->
+                    when (currentTab) {
                     LibrarySubTab.ALL_SONGS -> {
                         if (tracks.isEmpty()) {
                             Box(Modifier.padding(top = headerContentTop, start = 16.dp, end = 16.dp)) {
@@ -422,6 +437,7 @@ fun LibraryScreen(
                 }
             }
         }
+    }
 
         // Layer 2: Open Glass Fade Header (Option 1 — seamless fade + expandable search button + 3 symmetric tabs)
         Box(modifier = Modifier.fillMaxWidth()) {

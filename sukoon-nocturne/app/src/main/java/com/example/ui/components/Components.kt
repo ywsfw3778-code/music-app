@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -114,23 +115,29 @@ fun TrackArtwork(
             ),
         contentAlignment = Alignment.Center
     ) {
-        if (!resolvedUri.isNullOrBlank()) {
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(resolvedUri)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Rounded.MusicNote,
-                contentDescription = null,
-                tint = accentColor.copy(alpha = 0.55f),
-                modifier = Modifier.size(size * 0.45f)
-            )
+        Crossfade(
+            targetState = resolvedUri,
+            animationSpec = tween(320),
+            label = "trackArtCrossfade"
+        ) { uri ->
+            if (!uri.isNullOrBlank()) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(uri)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Rounded.MusicNote,
+                    contentDescription = null,
+                    tint = accentColor.copy(alpha = 0.55f),
+                    modifier = Modifier.size(size * 0.45f)
+                )
+            }
         }
     }
 }
@@ -255,84 +262,86 @@ fun MiniPlayerBar(
                 .padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Stationary Album Artwork with smooth internal Crossfade
+            TrackArtwork(
+                artUri = track.artUri,
+                size = 44.dp,
+                cornerRadius = 12.dp,
+                accentColor = accentColor
+            )
+
+            Spacer(Modifier.width(10.dp))
+
+            // Vertical Slide Transition for Track Title and Artist
             AnimatedContent(
                 targetState = track,
                 transitionSpec = {
                     (fadeIn(tween(260, easing = FastOutSlowInEasing)) +
-                        slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it / 3 })
+                        slideInVertically(tween(280, easing = FastOutSlowInEasing)) { it / 2 })
                         .togetherWith(
                             fadeOut(tween(180)) +
-                                slideOutVertically(tween(180)) { -it / 3 }
+                                slideOutVertically(tween(200, easing = FastOutSlowInEasing)) { -it / 2 }
                         )
                 },
                 label = "miniTrackTransition",
                 modifier = Modifier.weight(1f)
             ) { current ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    TrackArtwork(
-                        artUri = current.artUri,
-                        size = 44.dp,
-                        cornerRadius = 12.dp,
-                        accentColor = accentColor
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = current.title,
+                        color = NocturneColors.TextPrimary,
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        style = TextStyle(textDirection = TextDirection.Content),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(Modifier.width(10.dp))
-                    Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         Text(
-                            text = current.title,
-                            color = NocturneColors.TextPrimary,
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.Bold,
+                            text = current.artist,
+                            color = NocturneColors.TextSecondary,
+                            fontSize = 11.5.sp,
                             style = TextStyle(textDirection = TextDirection.Content),
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        AnimatedVisibility(
+                            visible = isCrossfading,
+                            enter = fadeIn(tween(200)),
+                            exit = fadeOut(tween(200))
                         ) {
-                            Text(
-                                text = current.artist,
-                                color = NocturneColors.TextSecondary,
-                                fontSize = 11.5.sp,
-                                style = TextStyle(textDirection = TextDirection.Content),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false)
+                            val pulse = rememberInfiniteTransition(label = "cfPulse")
+                            val scale by pulse.animateFloat(
+                                initialValue = 0.94f,
+                                targetValue = 1.06f,
+                                animationSpec = infiniteRepeatable(tween(450), RepeatMode.Reverse),
+                                label = "cfScale"
                             )
-                            AnimatedVisibility(
-                                visible = isCrossfading,
-                                enter = fadeIn(tween(200)),
-                                exit = fadeOut(tween(200))
+                            Row(
+                                modifier = Modifier
+                                    .scale(scale)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(accentColor.copy(alpha = 0.22f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
                             ) {
-                                val pulse = rememberInfiniteTransition(label = "cfPulse")
-                                val scale by pulse.animateFloat(
-                                    initialValue = 0.94f,
-                                    targetValue = 1.06f,
-                                    animationSpec = infiniteRepeatable(tween(450), RepeatMode.Reverse),
-                                    label = "cfScale"
+                                Icon(
+                                    imageVector = Icons.Rounded.SwapHoriz,
+                                    contentDescription = null,
+                                    tint = accentColor,
+                                    modifier = Modifier.size(11.dp)
                                 )
-                                Row(
-                                    modifier = Modifier
-                                        .scale(scale)
-                                        .clip(RoundedCornerShape(50))
-                                        .background(accentColor.copy(alpha = 0.22f))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.SwapHoriz,
-                                        contentDescription = null,
-                                        tint = accentColor,
-                                        modifier = Modifier.size(11.dp)
-                                    )
-                                    Text(
-                                        text = "${(crossfadeProgress * 100).toInt()}%",
-                                        color = accentColor,
-                                        fontSize = 9.5.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
+                                Text(
+                                    text = "${(crossfadeProgress * 100).toInt()}%",
+                                    color = accentColor,
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }

@@ -1,13 +1,18 @@
 package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -164,116 +169,135 @@ fun ArtistsAlbumsScreen(
                 .fillMaxSize()
                 .waterGlassContent(if (isPageActive) LocalWaterGlassState.current else null)
         ) {
-            when {
-                selectedArtist != null -> {
-                    val artist = selectedArtist!!
-                    val artistTracks = remember(artist, tracks) {
-                        tracks.filter { artist.trackIds.contains(it.id) || it.artist.equals(artist.name, ignoreCase = true) }
-                    }
-                    ArtistDetailView(
-                        artist = artist,
-                        artistPhotoUrl = artistPhotos[artist.name],
-                        tracks = artistTracks,
-                        strings = strings,
-                        currentTrackId = currentTrackId,
-                        isPlaying = isPlaying,
-                        favoriteIds = favoriteIds,
-                        accentColor = accentColor,
-                        onBack = { selectedArtist = null },
-                        onPlayTrack = onPlayTrack,
-                        onToggleFavorite = onToggleFavorite,
-                        onMoreClick = onMoreClick,
-                        topPadding = headerContentTop,
-                        bottomPadding = bottomPadding
-                    )
-                }
+            AnimatedContent(
+                targetState = Triple(selectedArtist, selectedAlbum, selectedTab),
+                transitionSpec = {
+                    val intoDetails = (targetState.first != null || targetState.second != null) &&
+                        (initialState.first == null && initialState.second == null)
+                    val outOfDetails = (initialState.first != null || initialState.second != null) &&
+                        (targetState.first == null && targetState.second == null)
 
-                selectedAlbum != null -> {
-                    val album = selectedAlbum!!
-                    val albumTracks = remember(album, tracks) {
-                        tracks.filter { album.trackIds.contains(it.id) || (it.album == album.title && it.artist == album.artist) }
-                    }
-                    AlbumDetailView(
-                        album = album,
-                        albumArtUrl = albumArt[album.id] ?: album.artUri,
-                        tracks = albumTracks,
-                        strings = strings,
-                        currentTrackId = currentTrackId,
-                        isPlaying = isPlaying,
-                        favoriteIds = favoriteIds,
-                        accentColor = accentColor,
-                        onBack = { selectedAlbum = null },
-                        onPlayTrack = onPlayTrack,
-                        onToggleFavorite = onToggleFavorite,
-                        onMoreClick = onMoreClick,
-                        topPadding = headerContentTop,
-                        bottomPadding = bottomPadding
-                    )
-                }
-
-                selectedTab == ArtistsAlbumsTab.ARTISTS -> {
-                    if (filteredArtists.isEmpty()) {
-                        EmptyListCard(
-                            title = if (strings.isRtl) "لا يوجد فنانون" else "No artists found",
-                            subtitle = if (strings.isRtl) "لم يتم العثور على أي فنان في المكتبة" else "No artists currently in library",
-                            topPadding = headerContentTop,
-                            accentColor = accentColor
-                        )
+                    if (intoDetails) {
+                        (fadeIn(tween(260)) + slideInHorizontally(tween(300, easing = FastOutSlowInEasing)) { it / 3 })
+                            .togetherWith(fadeOut(tween(180)) + slideOutHorizontally(tween(240)) { -it / 4 })
+                    } else if (outOfDetails) {
+                        (fadeIn(tween(240)) + slideInHorizontally(tween(280, easing = FastOutSlowInEasing)) { -it / 4 })
+                            .togetherWith(fadeOut(tween(180)) + slideOutHorizontally(tween(240)) { it / 3 })
                     } else {
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(2),
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(
-                                top = headerContentTop,
-                                bottom = bottomPadding.calculateBottomPadding() + 16.dp,
-                                start = 14.dp,
-                                end = 14.dp
-                            ),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(filteredArtists, key = { it.name }) { artist ->
-                                ArtistGridItem(
-                                    artist = artist,
-                                    artistPhotoUrl = artistPhotos[artist.name],
-                                    strings = strings,
-                                    accentColor = accentColor,
-                                    onClick = { selectedArtist = artist }
-                                )
+                        fadeIn(tween(200)).togetherWith(fadeOut(tween(180)))
+                    }
+                },
+                label = "artistsAlbumsScreenTransition"
+            ) { (currentArtist, currentAlbum, currentTab) ->
+                when {
+                    currentArtist != null -> {
+                        val artistTracks = remember(currentArtist, tracks) {
+                            tracks.filter { currentArtist.trackIds.contains(it.id) || it.artist.equals(currentArtist.name, ignoreCase = true) }
+                        }
+                        ArtistDetailView(
+                            artist = currentArtist,
+                            artistPhotoUrl = artistPhotos[currentArtist.name],
+                            tracks = artistTracks,
+                            strings = strings,
+                            currentTrackId = currentTrackId,
+                            isPlaying = isPlaying,
+                            favoriteIds = favoriteIds,
+                            accentColor = accentColor,
+                            onBack = { selectedArtist = null },
+                            onPlayTrack = onPlayTrack,
+                            onToggleFavorite = onToggleFavorite,
+                            onMoreClick = onMoreClick,
+                            topPadding = headerContentTop,
+                            bottomPadding = bottomPadding
+                        )
+                    }
+
+                    currentAlbum != null -> {
+                        val albumTracks = remember(currentAlbum, tracks) {
+                            tracks.filter { currentAlbum.trackIds.contains(it.id) || (it.album == currentAlbum.title && it.artist == currentAlbum.artist) }
+                        }
+                        AlbumDetailView(
+                            album = currentAlbum,
+                            albumArtUrl = albumArt[currentAlbum.id] ?: currentAlbum.artUri,
+                            tracks = albumTracks,
+                            strings = strings,
+                            currentTrackId = currentTrackId,
+                            isPlaying = isPlaying,
+                            favoriteIds = favoriteIds,
+                            accentColor = accentColor,
+                            onBack = { selectedAlbum = null },
+                            onPlayTrack = onPlayTrack,
+                            onToggleFavorite = onToggleFavorite,
+                            onMoreClick = onMoreClick,
+                            topPadding = headerContentTop,
+                            bottomPadding = bottomPadding
+                        )
+                    }
+
+                    currentTab == ArtistsAlbumsTab.ARTISTS -> {
+                        if (filteredArtists.isEmpty()) {
+                            EmptyListCard(
+                                title = if (strings.isRtl) "لا يوجد فنانون" else "No artists found",
+                                subtitle = if (strings.isRtl) "لم يتم العثور على أي فنان في المكتبة" else "No artists currently in library",
+                                topPadding = headerContentTop,
+                                accentColor = accentColor
+                            )
+                        } else {
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(2),
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(
+                                    top = headerContentTop,
+                                    bottom = bottomPadding.calculateBottomPadding() + 16.dp,
+                                    start = 14.dp,
+                                    end = 14.dp
+                                ),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(filteredArtists, key = { it.name }) { artist ->
+                                    ArtistGridItem(
+                                        artist = artist,
+                                        artistPhotoUrl = artistPhotos[artist.name],
+                                        strings = strings,
+                                        accentColor = accentColor,
+                                        onClick = { selectedArtist = artist }
+                                    )
+                                }
                             }
                         }
                     }
-                }
 
-                selectedTab == ArtistsAlbumsTab.ALBUMS -> {
-                    if (filteredAlbums.isEmpty()) {
-                        EmptyListCard(
-                            title = if (strings.isRtl) "لا توجد ألبومات" else "No albums found",
-                            subtitle = if (strings.isRtl) "لم يتم العثور على أي ألبوم في المكتبة" else "No albums currently in library",
-                            topPadding = headerContentTop,
-                            accentColor = accentColor
-                        )
-                    } else {
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(2),
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(
-                                top = headerContentTop,
-                                bottom = bottomPadding.calculateBottomPadding() + 16.dp,
-                                start = 14.dp,
-                                end = 14.dp
-                            ),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(filteredAlbums, key = { it.id }) { album ->
-                                AlbumGridItem(
-                                    album = album,
-                                    albumArtUrl = albumArt[album.id] ?: album.artUri,
-                                    strings = strings,
-                                    accentColor = accentColor,
-                                    onClick = { selectedAlbum = album }
-                                )
+                    currentTab == ArtistsAlbumsTab.ALBUMS -> {
+                        if (filteredAlbums.isEmpty()) {
+                            EmptyListCard(
+                                title = if (strings.isRtl) "لا توجد ألبومات" else "No albums found",
+                                subtitle = if (strings.isRtl) "لم يتم العثور على أي ألبوم في المكتبة" else "No albums currently in library",
+                                topPadding = headerContentTop,
+                                accentColor = accentColor
+                            )
+                        } else {
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(2),
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(
+                                    top = headerContentTop,
+                                    bottom = bottomPadding.calculateBottomPadding() + 16.dp,
+                                    start = 14.dp,
+                                    end = 14.dp
+                                ),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(filteredAlbums, key = { it.id }) { album ->
+                                    AlbumGridItem(
+                                        album = album,
+                                        albumArtUrl = albumArt[album.id] ?: album.artUri,
+                                        strings = strings,
+                                        accentColor = accentColor,
+                                        onClick = { selectedAlbum = album }
+                                    )
+                                }
                             }
                         }
                     }

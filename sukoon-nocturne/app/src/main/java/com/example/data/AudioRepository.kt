@@ -176,9 +176,12 @@ class AudioRepository(private val context: Context) {
                 )
 
                 val cachedArt = File(artCacheDir, "track_${id}.jpg")
+                val safeKey = "${artist}_${album.trim()}".replace(Regex("[^a-zA-Z0-9_\\-\\u0600-\\u06FF]"), "_")
+                val cachedAlbumArt = File(artCacheDir, "album_${safeKey}.jpg")
                 val noArtMarker = File(artCacheDir, "track_${id}.none")
                 val artUri = when {
                     cachedArt.exists() && cachedArt.length() > 0L -> Uri.fromFile(cachedArt).toString()
+                    cachedAlbumArt.exists() && cachedAlbumArt.length() > 0L -> Uri.fromFile(cachedAlbumArt).toString()
                     noArtMarker.exists() -> null
                     else -> "track_art://$id?uri=${Uri.encode(contentUri)}&path=${Uri.encode(filePath)}"
                 }
@@ -242,19 +245,34 @@ class AudioRepository(private val context: Context) {
             val content = file.readText()
             val array = JSONArray(content)
             val list = ArrayList<Track>(array.length())
+            val artCacheDir = File(context.cacheDir, "track_art_v2")
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
                 val rawTitle = obj.getString("title")
                 val rawArtist = obj.getString("artist")
                 val fileName = obj.getString("name")
                 val (artist, title) = ArtistNormalizer.resolveArtistAndTitle(rawTitle, rawArtist, fileName)
+                val rawAlbum = obj.getString("album")
+                val trackId = obj.getString("id")
+                val cachedFile = File(artCacheDir, "track_${trackId}.jpg")
+                val safeKey = "${artist}_${rawAlbum.trim()}".replace(Regex("[^a-zA-Z0-9_\\-\\u0600-\\u06FF]"), "_")
+                val cachedAlbumArt = File(artCacheDir, "album_${safeKey}.jpg")
+                var art = obj.optString("art").takeIf { !it.isNullOrBlank() }
+                if (art == null || art.startsWith("track_art://")) {
+                    if (cachedFile.exists() && cachedFile.length() > 0L) {
+                        art = Uri.fromFile(cachedFile).toString()
+                    } else if (cachedAlbumArt.exists() && cachedAlbumArt.length() > 0L) {
+                        art = Uri.fromFile(cachedAlbumArt).toString()
+                    }
+                }
+
                 list.add(
                     Track(
-                        id = obj.getString("id"),
+                        id = trackId,
                         contentUri = obj.getString("uri"),
                         title = title,
                         artist = artist,
-                        album = obj.getString("album"),
+                        album = rawAlbum,
                         durationSec = obj.getDouble("dur"),
                         fileName = fileName,
                         folderPath = obj.getString("path"),
@@ -263,7 +281,7 @@ class AudioRepository(private val context: Context) {
                         mimeType = obj.getString("mime"),
                         dateAdded = obj.getLong("date"),
                         albumId = obj.getLong("albId"),
-                        artUri = obj.optString("art").takeIf { !it.isNullOrBlank() }
+                        artUri = art
                     )
                 )
             }

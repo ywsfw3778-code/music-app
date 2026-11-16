@@ -17,6 +17,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -442,11 +444,15 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                     }
                 }
 
-                // Full Player Modal Sheet (isolates 150ms positionMs updates from main screen)
+                // Full Player Modal Sheet with Spring Popup Expansion
                 AnimatedVisibility(
                     visible = showFullPlayer && currentTrack != null,
-                    enter = slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it } + fadeIn(tween(180)),
-                    exit = slideOutVertically(tween(220)) { it } + fadeOut(tween(150))
+                    enter = slideInVertically(
+                        animationSpec = spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow)
+                    ) { it } + fadeIn(tween(180)),
+                    exit = slideOutVertically(
+                        animationSpec = tween(220, easing = FastOutSlowInEasing)
+                    ) { it } + fadeOut(tween(160))
                 ) {
                     currentTrack?.let { track ->
                         FullPlayerContainer(

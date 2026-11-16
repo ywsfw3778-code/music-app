@@ -24,6 +24,12 @@ object ArtistNormalizer {
         // Wegz
         "wegz" to "Wegz",
         "ويجز" to "Wegz",
+        "wegz ويجز" to "Wegz",
+        "ويجز wegz" to "Wegz",
+        "wegz / ويجز" to "Wegz",
+        "wegz - ويجز" to "Wegz",
+        "wegz | ويجز" to "Wegz",
+        "ويجز | wegz" to "Wegz",
 
         // Marwan Pablo
         "marwan pablo" to "Marwan Pablo",
@@ -166,7 +172,7 @@ object ArtistNormalizer {
     private val albumJunkPatterns = listOf(
         "t.me", ".com", "telegram", "http", "dndnha", "official video", "official audio",
         "slowed", "reverb", "كوكتيل", "أفضل أغانى", "للمونتاج", "prod.", "prod by",
-        "music video", "mashup"
+        "music video", "mashup", "- topic", "topic"
     )
 
     /**
@@ -196,14 +202,15 @@ object ArtistNormalizer {
         }
 
         // Check if album is compound artist name like "Abyusif I أبيوسف" or "Marwan Pablo - ..."
-        if (alb.contains(" - ") || alb.contains(" | ") || alb.contains(" i ") || alb.contains(" / ")) {
-            val parts = alb.split(Regex("""\s*[-|/iI]\s*"""))
-            if (parts.any { p -> lookupAlias(p.trim()) != null || p.trim() == normArtist }) {
-                return true
-            }
+        val parts = alb.split(Regex("""\s+(?:[-|/iI•:]|ft\.|feat\.)\s+|[|/]"""))
+        if (parts.any { p ->
+            val pt = p.trim()
+            pt == normArtist || lookupAlias(pt) != null || normalizeArtist(pt).lowercase() == normArtist
+        }) {
+            return true
         }
 
-        // If single track, check if album was auto-populated from title or file name
+        // If single track, check if album was auto-populated from title or file name, or is a single collab
         if (trackCount == 1) {
             val titleClean = trackTitle?.trim()?.lowercase().orEmpty()
             val fileClean = fileName?.trim()?.lowercase().orEmpty()
@@ -214,6 +221,9 @@ object ArtistNormalizer {
                 return true
             }
             if (alb.length > 4 && (titleClean.contains(alb) || alb.contains(titleClean))) {
+                return true
+            }
+            if (alb.contains("remix") || alb.contains(" x ") || alb.contains(" ft") || alb.contains(" feat")) {
                 return true
             }
         }

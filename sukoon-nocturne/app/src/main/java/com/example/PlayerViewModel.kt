@@ -170,7 +170,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 )) {
                 return@mapNotNull null
             }
-            val artUri = list.firstNotNullOfOrNull { it.artUri?.takeIf { u -> !u.startsWith("track_art://") } }
+            val safeKey = "${normArtist}_${first.album.trim()}".replace(Regex("[^a-zA-Z0-9_\\-\\u0600-\\u06FF]"), "_")
+            val diskAlbumArt = File(getApplication<Application>().cacheDir, "track_art_v2/album_${safeKey}.jpg")
+            val diskArtUri = if (diskAlbumArt.exists() && diskAlbumArt.length() > 0L) Uri.fromFile(diskAlbumArt).toString() else null
+
+            val artUri = diskArtUri
+                ?: list.firstNotNullOfOrNull { it.artUri?.takeIf { u -> !u.startsWith("track_art://") } }
                 ?: artMap[key]
                 ?: first.artUri
             Album(
@@ -286,28 +291,36 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun startAlbumArtResolver() {
         viewModelScope.launch(Dispatchers.IO) {
-            albums.collect { list ->
-                val ctx = getApplication<Application>()
-                for (alb in list) {
-                    if (_albumArt.value.containsKey(alb.id)) continue
-                    val existingArt = alb.artUri?.takeIf { !it.startsWith("track_art://") }
-                    if (existingArt != null) {
-                        _albumArt.value = _albumArt.value + (alb.id to existingArt)
-                        continue
-                    }
-                    val coverUri = com.example.data.OnlineMetadataResolver.resolveAlbumArtOnline(ctx, alb.title, alb.artist)
-                    if (!coverUri.isNullOrBlank()) {
-                        _albumArt.value = _albumArt.value + (alb.id to coverUri)
-                    }
-                    delay(80)
+            delay(800)
+            val ctx = getApplication<Application>()
+            val currentTracks = activeTracks.value
+            val uniqueAlbums = currentTracks
+                .filter { !it.isExcluded && !ArtistNormalizer.isFakeOrJunkAlbum(it.album, it.artist, 2) }
+                .map { Pair(it.album.trim(), ArtistNormalizer.normalizeArtist(it.artist)) }
+                .distinct()
+
+            val map = _albumArt.value.toMutableMap()
+            var addedAny = false
+            for ((albumTitle, artistName) in uniqueAlbums) {
+                val groupKey = "${albumTitle.lowercase()}:::${artistName.lowercase()}"
+                if (map.containsKey(groupKey)) continue
+                val coverUri = com.example.data.OnlineMetadataResolver.resolveAlbumArtOnline(ctx, albumTitle, artistName)
+                if (!coverUri.isNullOrBlank()) {
+                    map[groupKey] = coverUri
+                    addedAny = true
+                    _albumArt.value = LinkedHashMap(map)
                 }
+                delay(80)
+            }
+            if (addedAny) {
+                _albumArt.value = LinkedHashMap(map)
             }
         }
     }
 
     private fun startBackgroundTrackArtResolver() {
         viewModelScope.launch(Dispatchers.IO) {
-            delay(1500)
+            delay(1200)
             val ctx = getApplication<Application>()
             val artCacheDir = File(ctx.cacheDir, "track_art_v2").apply { mkdirs() }
 
@@ -315,11 +328,44 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             val updated = currentTracks.toMutableList()
             var hasChanges = false
 
+            // Fast in-memory pass for existing cached art or album art
             for (i in updated.indices) {
                 val t = updated[i]
                 if (t.isExcluded) continue
-                val existingArt = t.artUri?.takeIf { !it.startsWith("track_art://") }
-                if (existingArt != null) continue
+                if (t.artUri != null && !t.artUri.startsWith("track_art://")) continue
+
+                val cachedFile = File(artCacheDir, "track_${t.id}.jpg")
+                if (cachedFile.exists() && cachedFile.length() > 0L) {
+                    updated[i] = t.copy(artUri = Uri.fromFile(cachedFile).toString())
+                    hasChanges = true
+                    continue
+                }
+
+                val normArtist = ArtistNormalizer.normalizeArtist(t.artist)
+                val groupKey = "${t.album.trim().lowercase()}:::${normArtist.lowercase()}"
+                val safeKey = "${normArtist}_${t.album.trim()}".replace(Regex("[^a-zA-Z0-9_\\-\\u0600-\\u06FF]"), "_")
+                val diskAlbumCover = File(artCacheDir, "album_${safeKey}.jpg")
+                val albumCover = _albumArt.value[groupKey]
+                    ?: (if (diskAlbumCover.exists() && diskAlbumCover.length() > 0L) Uri.fromFile(diskAlbumCover).toString() else null)
+
+                if (!albumCover.isNullOrBlank()) {
+                    updated[i] = t.copy(artUri = albumCover)
+                    hasChanges = true
+                }
+            }
+
+            if (hasChanges) {
+                _allScannedTracks.value = ArrayList(updated)
+                audioRepo.saveTracksToCache(updated)
+                hasChanges = false
+            }
+
+            // Quiet background pass for remaining tracks without covers
+            var batchCount = 0
+            for (i in updated.indices) {
+                val t = updated[i]
+                if (t.isExcluded) continue
+                if (t.artUri != null && !t.artUri.startsWith("track_art://")) continue
 
                 val cachedFile = File(artCacheDir, "track_${t.id}.jpg")
                 val fullPath = File(t.folderPath, t.fileName).absolutePath
@@ -330,20 +376,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     val uri = Uri.fromFile(embedded).toString()
                     updated[i] = t.copy(artUri = uri)
                     hasChanges = true
+                    batchCount++
                     continue
                 }
 
-                // 2. Try sibling album cover if available
-                val normArtist = ArtistNormalizer.normalizeArtist(t.artist)
-                val groupKey = "${t.album.trim().lowercase()}:::${normArtist.lowercase()}"
-                val albumCover = _albumArt.value[groupKey]
-                if (!albumCover.isNullOrBlank()) {
-                    updated[i] = t.copy(artUri = albumCover)
-                    hasChanges = true
-                    continue
-                }
-
-                // 3. Resolve from online Deezer / iTunes
+                // 2. Resolve from online Deezer / iTunes
                 val fetched = com.example.data.OnlineMetadataResolver.resolveTrackArtOnline(
                     context = ctx,
                     trackId = t.id,
@@ -355,12 +392,15 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     val uri = Uri.fromFile(cachedFile).toString()
                     updated[i] = t.copy(artUri = uri)
                     hasChanges = true
+                    batchCount++
                 }
 
-                if (hasChanges && i % 4 == 0) {
+                if (batchCount >= 20) {
                     _allScannedTracks.value = ArrayList(updated)
+                    audioRepo.saveTracksToCache(updated)
+                    batchCount = 0
                 }
-                delay(120)
+                delay(150)
             }
 
             if (hasChanges) {

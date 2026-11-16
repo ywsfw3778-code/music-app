@@ -17,7 +17,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -521,8 +523,8 @@ fun FullPlayerSheet(
                     AnimatedContent(
                         targetState = track,
                         transitionSpec = {
-                            (fadeIn(tween(260)) + slideInHorizontally(tween(260)) { it / 6 })
-                                .togetherWith(fadeOut(tween(180)) + slideOutHorizontally(tween(180)) { -it / 6 })
+                            (fadeIn(tween(260, easing = FastOutSlowInEasing)) + slideInVertically(tween(280, easing = FastOutSlowInEasing)) { it / 2 })
+                                .togetherWith(fadeOut(tween(180)) + slideOutVertically(tween(200, easing = FastOutSlowInEasing)) { -it / 2 })
                         },
                         modifier = Modifier.weight(1f),
                         label = "playerTrackMeta"

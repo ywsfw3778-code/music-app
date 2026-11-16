@@ -148,56 +148,71 @@ object OnlineMetadataResolver {
         if (targetFile.exists() && targetFile.length() > 0L) return@withContext true
         val cleanTitle = ArtistNormalizer.cleanTrackTitle(title, artist)
         val cleanArtist = ArtistNormalizer.normalizeArtist(artist)
-        val query = "$cleanArtist $cleanTitle".trim()
-        if (query.length < 3) return@withContext false
 
-        val encoded = runCatching { URLEncoder.encode(query, "UTF-8") }.getOrNull() ?: return@withContext false
-        val url = "https://api.deezer.com/search?q=$encoded&limit=1"
-        val req = Request.Builder()
-            .url(url)
-            .header("User-Agent", "Sukoon-Nocturne/2.0 (Android)")
-            .build()
+        val queries = mutableListOf<String>()
+        queries.add("$cleanArtist $cleanTitle".trim())
+        if (cleanTitle.contains("|")) {
+            val p1 = cleanTitle.substringBefore("|").trim()
+            val p2 = cleanTitle.substringAfter("|").trim()
+            if (p1.isNotBlank()) queries.add("$cleanArtist $p1")
+            if (p2.isNotBlank()) queries.add("$cleanArtist $p2")
+        }
+        if (cleanTitle.contains("-")) {
+            val p2 = cleanTitle.substringAfter("-").trim()
+            if (p2.isNotBlank()) queries.add("$cleanArtist $p2")
+        }
+        queries.add(cleanTitle)
 
-        var coverUrl = runCatching {
-            client.newCall(req).execute().use { resp ->
-                if (!resp.isSuccessful) return@use null
-                val body = resp.body?.string().orEmpty()
-                val json = JSONObject(body)
-                val data = json.optJSONArray("data") ?: return@use null
-                if (data.length() == 0) return@use null
-                val first = data.getJSONObject(0)
-                val album = first.optJSONObject("album")
-                album?.optString("cover_big")?.takeIf { it.isNotBlank() }
-                    ?: album?.optString("cover_medium")?.takeIf { it.isNotBlank() }
-            }
-        }.getOrNull()
-
-        // Fallback to iTunes song search
-        if (coverUrl.isNullOrBlank()) {
-            val itunesUrl = "https://itunes.apple.com/search?term=$encoded&entity=song&limit=1"
-            val itunesReq = Request.Builder()
-                .url(itunesUrl)
+        for (q in queries) {
+            val encoded = runCatching { URLEncoder.encode(q.trim(), "UTF-8") }.getOrNull() ?: continue
+            val url = "https://api.deezer.com/search?q=$encoded&limit=1"
+            val req = Request.Builder()
+                .url(url)
                 .header("User-Agent", "Sukoon-Nocturne/2.0 (Android)")
                 .build()
 
-            coverUrl = runCatching {
-                client.newCall(itunesReq).execute().use { resp ->
+            var coverUrl = runCatching {
+                client.newCall(req).execute().use { resp ->
                     if (!resp.isSuccessful) return@use null
                     val body = resp.body?.string().orEmpty()
                     val json = JSONObject(body)
-                    val results = json.optJSONArray("results") ?: return@use null
-                    if (results.length() == 0) return@use null
-                    val first = results.getJSONObject(0)
-                    val rawArt = first.optString("artworkUrl100")
-                    if (rawArt.isNotBlank()) {
-                        rawArt.replace("100x100bb", "600x600bb")
-                    } else null
+                    val data = json.optJSONArray("data") ?: return@use null
+                    if (data.length() == 0) return@use null
+                    val first = data.getJSONObject(0)
+                    val album = first.optJSONObject("album")
+                    album?.optString("cover_big")?.takeIf { it.isNotBlank() }
+                        ?: album?.optString("cover_medium")?.takeIf { it.isNotBlank() }
                 }
             }.getOrNull()
-        }
 
-        if (!coverUrl.isNullOrBlank()) {
-            return@withContext downloadToFile(coverUrl, targetFile)
+            // Fallback to iTunes song search
+            if (coverUrl.isNullOrBlank()) {
+                val itunesUrl = "https://itunes.apple.com/search?term=$encoded&entity=song&limit=1"
+                val itunesReq = Request.Builder()
+                    .url(itunesUrl)
+                    .header("User-Agent", "Sukoon-Nocturne/2.0 (Android)")
+                    .build()
+
+                coverUrl = runCatching {
+                    client.newCall(itunesReq).execute().use { resp ->
+                        if (!resp.isSuccessful) return@use null
+                        val body = resp.body?.string().orEmpty()
+                        val json = JSONObject(body)
+                        val results = json.optJSONArray("results") ?: return@use null
+                        if (results.length() == 0) return@use null
+                        val first = results.getJSONObject(0)
+                        val rawArt = first.optString("artworkUrl100")
+                        if (rawArt.isNotBlank()) {
+                            rawArt.replace("100x100bb", "600x600bb")
+                        } else null
+                    }
+                }.getOrNull()
+            }
+
+            if (!coverUrl.isNullOrBlank()) {
+                val downloaded = downloadToFile(coverUrl, targetFile)
+                if (downloaded) return@withContext true
+            }
         }
         false
     }
@@ -214,12 +229,21 @@ object OnlineMetadataResolver {
         val cachedFile = File(artistDir, "artist_${safeName}.jpg")
         val noArtMarker = File(artistDir, "artist_${safeName}.none")
 
-        if (cachedFile.exists() && cachedFile.length() > 0L) {
+        if (cachedFile.exists() && cachedFile.length() > 3000L) {
             val uriStr = android.net.Uri.fromFile(cachedFile).toString()
             artistPhotoCache[canonical] = uriStr
             return@withContext uriStr
         }
-        if (noArtMarker.exists()) return@withContext null
+        if (cachedFile.exists() && cachedFile.length() <= 3000L) {
+            cachedFile.delete()
+        }
+        if (noArtMarker.exists()) {
+            if (canonical.equals("Wegz", ignoreCase = true)) {
+                noArtMarker.delete()
+            } else {
+                return@withContext null
+            }
+        }
 
         val encoded = runCatching { URLEncoder.encode(canonical, "UTF-8") }.getOrNull() ?: return@withContext null
         val url = "https://api.deezer.com/search/artist?q=$encoded&limit=1"
