@@ -43,6 +43,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -59,6 +60,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -80,7 +82,7 @@ import com.example.ui.components.MiniPlayerBar
 import com.example.ui.components.PlaylistPickerDialog
 import com.example.ui.components.TrackDetailsDialog
 import com.example.ui.components.TrackOptionsBottomSheet
-import com.example.ui.screens.FoldersScreen
+import com.example.ui.screens.ArtistsAlbumsScreen
 import com.example.ui.screens.FullPlayerSheet
 import com.example.ui.screens.LibraryScreen
 import com.example.ui.screens.SettingsScreen
@@ -112,13 +114,15 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
     val strings = StringsProvider.forLang(settings.language)
     val activeTracks by viewModel.activeTracks.collectAsState()
     val excludedTracks by viewModel.excludedTracks.collectAsState()
+    val artists by viewModel.artists.collectAsState()
+    val albums by viewModel.albums.collectAsState()
+    val folderItems by viewModel.folderItems.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
     val favoriteIds by viewModel.favoriteIds.collectAsState()
     val currentTrack by viewModel.currentTrack.collectAsState()
     val bgArtUriState by viewModel.bgArtUri.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val isCrossfading by viewModel.isCrossfading.collectAsState()
-    val crossfadeProgress by viewModel.crossfadeProgress.collectAsState()
     val accentInt by viewModel.accentColor.collectAsState()
     val secondaryInt by viewModel.secondaryColor.collectAsState()
     val toastMsg by viewModel.toastMessage.collectAsState()
@@ -254,8 +258,8 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
+                            .drawBehind {
+                                val brush = Brush.verticalGradient(
                                     if (colorsOnlyMode) {
                                         listOf(
                                             accentColor.copy(alpha = if (currentTrack != null && settings.dynamicAccent) 0.72f else 0.36f),
@@ -270,7 +274,8 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                                         )
                                     }
                                 )
-                            )
+                                drawRect(brush)
+                            }
                     )
                 }
 
@@ -310,10 +315,11 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                                 isPageActive = pagerState.currentPage == MainTab.LIBRARY.ordinal
                             )
 
-                            MainTab.FOLDERS -> FoldersScreen(
+                            MainTab.ARTISTS -> ArtistsAlbumsScreen(
                                 strings = strings,
+                                artists = artists,
+                                albums = albums,
                                 tracks = activeTracks,
-                                excludedCount = excludedTracks.size,
                                 favoriteIds = favoriteIds,
                                 currentTrackId = currentTrack?.id,
                                 isPlaying = isPlaying,
@@ -322,7 +328,7 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                                 onToggleFavorite = { viewModel.toggleFavorite(it) },
                                 onMoreClick = { menuTrack = it },
                                 bottomPadding = listBottomPad,
-                                isPageActive = pagerState.currentPage == MainTab.FOLDERS.ordinal
+                                isPageActive = pagerState.currentPage == MainTab.ARTISTS.ordinal
                             )
 
                             MainTab.SETTINGS -> SettingsScreen(
@@ -331,6 +337,7 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                                 activeCount = activeTracks.size,
                                 excludedCount = excludedTracks.size,
                                 excludedTracks = excludedTracks,
+                                folderItems = folderItems,
                                 hasNotificationPermission = hasNotifPerm,
                                 accentColor = accentColor,
                                 onLanguageChange = { viewModel.updateLanguage(it) },
@@ -339,6 +346,8 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                                 onMinDurationChange = { viewModel.updateMinDuration(it) },
                                 onAddKeyword = { viewModel.addCustomKeyword(it) },
                                 onRemoveKeyword = { viewModel.removeCustomKeyword(it) },
+                                onToggleExcludedFolder = { viewModel.toggleExcludedFolder(it) },
+                                onSetAllFoldersExcluded = { paths, ex -> viewModel.setAllFoldersExcluded(paths, ex) },
                                 onDynamicAccentChange = { viewModel.updateDynamicAccent(it) },
                                 onArtworkBgModeChange = { viewModel.updateArtworkBgMode(it) },
                                 onGlassBlurChange = { viewModel.updateGlassBlur(it) },
@@ -372,7 +381,6 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                             track = track,
                             isPlaying = isPlaying,
                             isCrossfading = isCrossfading,
-                            crossfadeProgress = crossfadeProgress,
                             accentColor = accentColor,
                             onOpenFull = { showFullPlayer = true }
                         )
@@ -390,7 +398,7 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                     ) {
                         listOf(
                             Triple(MainTab.LIBRARY, strings.navLibrary, Icons.Rounded.LibraryMusic),
-                            Triple(MainTab.FOLDERS, strings.navFolders, Icons.Rounded.Folder),
+                            Triple(MainTab.ARTISTS, strings.navArtists, Icons.Rounded.Person),
                             Triple(MainTab.SETTINGS, strings.navSettings, Icons.Rounded.Settings)
                         ).forEach { (tab, label, icon) ->
                             val selected = currentTab == tab
@@ -446,7 +454,6 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                             crossfadeEnabled = settings.crossfadeEnabled,
                             crossfadeSec = settings.crossfadeSec,
                             isCrossfading = isCrossfading,
-                            crossfadeProgress = crossfadeProgress,
                             showArtworkBg = settings.artworkBgMode != ArtworkBgMode.OFF,
                             glassBlurEnabled = settings.glassBlurEnabled,
                             lyricOffsetMs = settings.lyricOffsetMs,
@@ -535,12 +542,12 @@ private fun MiniPlayerContainer(
     track: Track,
     isPlaying: Boolean,
     isCrossfading: Boolean,
-    crossfadeProgress: Float,
     accentColor: Color,
     onOpenFull: () -> Unit
 ) {
     val positionMs by viewModel.positionMs.collectAsState()
     val durationMs by viewModel.durationMs.collectAsState()
+    val crossfadeProgress by viewModel.crossfadeProgress.collectAsState()
     val prog = if (durationMs > 0L) positionMs.toFloat() / durationMs.toFloat() else 0f
 
     MiniPlayerBar(
@@ -567,7 +574,6 @@ private fun FullPlayerContainer(
     crossfadeEnabled: Boolean,
     crossfadeSec: Int,
     isCrossfading: Boolean,
-    crossfadeProgress: Float,
     showArtworkBg: Boolean,
     glassBlurEnabled: Boolean,
     lyricOffsetMs: Long,
@@ -578,6 +584,7 @@ private fun FullPlayerContainer(
 ) {
     val positionMs by viewModel.positionMs.collectAsState()
     val durationMs by viewModel.durationMs.collectAsState()
+    val crossfadeProgress by viewModel.crossfadeProgress.collectAsState()
     val shuffleEnabled by viewModel.shuffleEnabled.collectAsState()
     val repeatMode by viewModel.repeatMode.collectAsState()
     val queue by viewModel.queue.collectAsState()

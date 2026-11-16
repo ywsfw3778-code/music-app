@@ -16,12 +16,16 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import com.example.data.ArtistNormalizer
 import com.example.data.AudioRepository
 import com.example.data.LyricsRepository
 import com.example.data.SettingsStore
+import com.example.model.Album
 import com.example.model.AppLanguage
 import com.example.model.AppSettings
+import com.example.model.Artist
 import com.example.model.ArtworkBgMode
+import com.example.model.FolderItem
 import com.example.model.LrcSearchResult
 import com.example.model.LyricsData
 import com.example.model.Playlist
@@ -38,6 +42,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -120,6 +125,54 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }.filter { it.isExcluded }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    val artists: StateFlow<List<Artist>> = activeTracks.map { tracks ->
+        val map = LinkedHashMap<String, MutableList<Track>>()
+        for (t in tracks) {
+            val name = ArtistNormalizer.normalizeArtist(t.artist)
+            map.getOrPut(name) { mutableListOf() }.add(t)
+        }
+        map.map { (name, list) ->
+            val albumCount = list.map { it.album }.distinct().size
+            val artUri = list.firstNotNullOfOrNull { it.artUri?.takeIf { u -> !u.startsWith("track_art://") } }
+                ?: list.firstOrNull()?.artUri
+            Artist(
+                name = name,
+                trackCount = list.size,
+                albumCount = albumCount,
+                artUri = artUri,
+                trackIds = list.map { it.id }
+            )
+        }.sortedWith(compareByDescending<Artist> { it.trackCount }.thenBy { it.name })
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val albums: StateFlow<List<Album>> = activeTracks.map { tracks ->
+        val map = LinkedHashMap<String, MutableList<Track>>()
+        for (t in tracks) {
+            val albumKey = "${t.album}:::${ArtistNormalizer.normalizeArtist(t.artist)}"
+            map.getOrPut(albumKey) { mutableListOf() }.add(t)
+        }
+        map.map { (key, list) ->
+            val first = list.first()
+            val artUri = list.firstNotNullOfOrNull { it.artUri?.takeIf { u -> !u.startsWith("track_art://") } }
+                ?: first.artUri
+            Album(
+                id = key,
+                title = first.album,
+                artist = ArtistNormalizer.normalizeArtist(first.artist),
+                trackCount = list.size,
+                artUri = artUri,
+                trackIds = list.map { it.id }
+            )
+        }.sortedWith(compareByDescending<Album> { it.trackCount }.thenBy { it.title })
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val folderItems: StateFlow<List<FolderItem>> = combine(
+        _allScannedTracks,
+        settings
+    ) { all, cfg ->
+        audioRepo.getFolderItems(all, cfg.excludedFolderPaths)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
     private val _currentTrack = MutableStateFlow<Track?>(null)
     val currentTrack: StateFlow<Track?> = _currentTrack.asStateFlow()
 
@@ -183,6 +236,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var lastFetchedLyricsTrackId: String? = null
 
     init {
+        val cached = audioRepo.loadCachedTracks()
+        if (cached.isNotEmpty()) {
+            _allScannedTracks.value = cached
+        }
         connectController()
         startProgressLoop()
     }
@@ -384,7 +441,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 _secondaryColor.value = secondary
             } else {
                 _accentColor.value = 0xFFF5F5F5.toInt()
-                _secondaryColor.value = 0xFF64748B.toInt()
+                _secondaryColor.value = 0xFF1C1C22.toInt()
             }
             if (lastFetchedLyricsTrackId != track.id) {
                 fetchLyricsForTrack(updated)
@@ -432,10 +489,21 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             _crossfadeProgress.value = 0f
             ctrl.volume = 1f
         }
-        val items = list.map { toMediaItem(it) }
-        ctrl.setMediaItems(items, startIndex, 0L)
-        ctrl.prepare()
-        ctrl.play()
+        val currentQ = _queue.value
+        val isSameQueue = currentQ.size == list.size &&
+            currentQ.firstOrNull()?.id == list.firstOrNull()?.id &&
+            currentQ.lastOrNull()?.id == list.lastOrNull()?.id
+
+        if (isSameQueue && ctrl.mediaItemCount == list.size) {
+            ctrl.seekTo(startIndex, 0L)
+            ctrl.prepare()
+            ctrl.play()
+        } else {
+            val items = list.map { toMediaItem(it) }
+            ctrl.setMediaItems(items, startIndex, 0L)
+            ctrl.prepare()
+            ctrl.play()
+        }
         if (shouldCrossfade) {
             performFadeIn(ctrl, settings.value.crossfadeSec)
         }
@@ -750,8 +818,20 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 _secondaryColor.value = track.secondaryColor
             } else {
                 _accentColor.value = 0xFFF5F5F5.toInt()
-                _secondaryColor.value = 0xFF64748B.toInt()
+                _secondaryColor.value = 0xFF1C1C22.toInt()
             }
+        }
+    }
+
+    fun toggleExcludedFolder(folderPath: String) {
+        viewModelScope.launch {
+            settingsStore.toggleExcludedFolder(folderPath)
+        }
+    }
+
+    fun setAllFoldersExcluded(allPaths: Set<String>, excludeAll: Boolean) {
+        viewModelScope.launch {
+            settingsStore.setAllFoldersExcluded(allPaths, excludeAll)
         }
     }
 

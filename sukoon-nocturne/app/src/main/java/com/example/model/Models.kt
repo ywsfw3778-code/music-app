@@ -4,7 +4,7 @@ enum class AppLanguage { AR, EN }
 
 enum class ArtworkBgMode { FULL, PARTIAL, OFF }
 
-enum class MainTab { LIBRARY, FOLDERS, SETTINGS }
+enum class MainTab { LIBRARY, ARTISTS, SETTINGS }
 
 enum class LibrarySubTab { ALL_SONGS, PLAYLISTS, FAVORITES, QUARANTINE }
 
@@ -12,7 +12,7 @@ enum class SortOption { TITLE, ARTIST, DURATION, RECENT }
 
 enum class RepeatMode { OFF, ALL, ONE }
 
-enum class ExclusionReason { NONE, RECORDING, SHORT_CLIP, KEYWORD, MANUAL }
+enum class ExclusionReason { NONE, RECORDING, SHORT_CLIP, KEYWORD, MANUAL, FOLDER }
 
 data class Track(
     val id: String,
@@ -64,6 +64,30 @@ data class LrcSearchResult(
     val plainLyrics: String?
 )
 
+data class Artist(
+    val name: String,
+    val trackCount: Int,
+    val albumCount: Int,
+    val artUri: String? = null,
+    val trackIds: List<String> = emptyList()
+)
+
+data class Album(
+    val id: String,
+    val title: String,
+    val artist: String,
+    val trackCount: Int,
+    val artUri: String? = null,
+    val trackIds: List<String> = emptyList()
+)
+
+data class FolderItem(
+    val path: String,
+    val name: String,
+    val trackCount: Int,
+    val isExcluded: Boolean = false
+)
+
 data class AppSettings(
     val language: AppLanguage = AppLanguage.AR,
     val crossfadeEnabled: Boolean = true,
@@ -71,6 +95,7 @@ data class AppSettings(
     val autoExcludeRecordings: Boolean = true,
     val minDurationSec: Int = 60,
     val customKeywords: List<String> = emptyList(),
+    val excludedFolderPaths: Set<String> = emptySet(),
     val dynamicAccent: Boolean = true,
     val artworkBgMode: ArtworkBgMode = ArtworkBgMode.FULL,
     val glassBlurEnabled: Boolean = true,

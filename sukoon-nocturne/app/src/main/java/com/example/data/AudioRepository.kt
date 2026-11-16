@@ -10,11 +10,14 @@ import android.os.Build
 import android.provider.MediaStore
 import com.example.model.AppSettings
 import com.example.model.ExclusionReason
+import com.example.model.FolderItem
 import com.example.model.Track
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.io.FileOutputStream
@@ -156,8 +159,10 @@ class AudioRepository(private val context: Context) {
                 val folderPath = parentFile?.absolutePath ?: "/"
                 val folderName = parentFile?.name ?: "Music"
 
-                val title = rawTitle.ifBlank { fileName.substringBeforeLast('.') }
-                val artist = if (rawArtist.isBlank() || rawArtist.equals("<unknown>", true)) "فنان غير معروف" else rawArtist
+                val baseTitle = rawTitle.ifBlank { fileName.substringBeforeLast('.') }
+                val initialArtist = if (rawArtist.isBlank() || rawArtist.equals("<unknown>", true)) "فنان غير معروف" else rawArtist
+                val artist = ArtistNormalizer.normalizeArtist(initialArtist)
+                val title = ArtistNormalizer.cleanTrackTitle(baseTitle, artist)
                 val album = if (rawAlbum.isBlank() || rawAlbum.equals("<unknown>", true)) "ألبوم غير محدد" else rawAlbum
 
                 val contentUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, mediaId).toString()
@@ -203,7 +208,80 @@ class AudioRepository(private val context: Context) {
                 )
             }
         }
+        saveTracksToCache(tracks)
         tracks
+    }
+
+    fun saveTracksToCache(tracks: List<Track>) {
+        runCatching {
+            val file = File(context.filesDir, "tracks_cache_v2.json")
+            val array = JSONArray()
+            for (t in tracks) {
+                val obj = JSONObject()
+                obj.put("id", t.id)
+                obj.put("uri", t.contentUri)
+                obj.put("title", t.title)
+                obj.put("artist", t.artist)
+                obj.put("album", t.album)
+                obj.put("dur", t.durationSec)
+                obj.put("name", t.fileName)
+                obj.put("path", t.folderPath)
+                obj.put("fname", t.folderName)
+                obj.put("size", t.sizeBytes)
+                obj.put("mime", t.mimeType)
+                obj.put("date", t.dateAdded)
+                obj.put("albId", t.albumId)
+                if (t.artUri != null) obj.put("art", t.artUri)
+                array.put(obj)
+            }
+            file.writeText(array.toString())
+        }
+    }
+
+    fun loadCachedTracks(): List<Track> {
+        return runCatching {
+            val file = File(context.filesDir, "tracks_cache_v2.json")
+            if (!file.exists() || file.length() == 0L) return emptyList()
+            val content = file.readText()
+            val array = JSONArray(content)
+            val list = ArrayList<Track>(array.length())
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                list.add(
+                    Track(
+                        id = obj.getString("id"),
+                        contentUri = obj.getString("uri"),
+                        title = obj.getString("title"),
+                        artist = obj.getString("artist"),
+                        album = obj.getString("album"),
+                        durationSec = obj.getDouble("dur"),
+                        fileName = obj.getString("name"),
+                        folderPath = obj.getString("path"),
+                        folderName = obj.getString("fname"),
+                        sizeBytes = obj.getLong("size"),
+                        mimeType = obj.getString("mime"),
+                        dateAdded = obj.getLong("date"),
+                        albumId = obj.getLong("albId"),
+                        artUri = obj.optString("art").takeIf { !it.isNullOrBlank() }
+                    )
+                )
+            }
+            list
+        }.getOrDefault(emptyList())
+    }
+
+    fun getFolderItems(tracks: List<Track>, excludedPaths: Set<String>): List<FolderItem> {
+        return tracks.groupBy { it.folderPath }
+            .map { (path, list) ->
+                val name = list.firstOrNull()?.folderName?.ifBlank { "Music" } ?: "Music"
+                FolderItem(
+                    path = path,
+                    name = name,
+                    trackCount = list.size,
+                    isExcluded = excludedPaths.contains(path)
+                )
+            }
+            .sortedWith(compareByDescending<FolderItem> { it.trackCount }.thenBy { it.name })
     }
 
     fun computeExclusionReason(
@@ -218,6 +296,7 @@ class AudioRepository(private val context: Context) {
     ): ExclusionReason {
         if (manualExcludedIds.contains(id)) return ExclusionReason.MANUAL
         if (manualRestoredIds.contains(id)) return ExclusionReason.NONE
+        if (settings.excludedFolderPaths.contains(folderPath)) return ExclusionReason.FOLDER
 
         val combined = "$title $fileName $folderPath"
         if (settings.autoExcludeRecordings && recordingRegex.containsMatchIn(combined)) {
@@ -236,12 +315,29 @@ class AudioRepository(private val context: Context) {
         artMemoryCache[track.id]?.let { return@withContext it }
 
         val fullPath = File(track.folderPath, track.fileName).absolutePath
-        val artFile = extractOrGetTrackArtFile(
+        var artFile = extractOrGetTrackArtFile(
             context = context,
             trackId = track.id,
             contentUri = track.contentUri,
             filePath = fullPath
         )
+
+        if ((artFile == null || !artFile.exists()) && track.title.isNotBlank()) {
+            val artCacheDir = File(context.cacheDir, "track_art_v2").apply { mkdirs() }
+            val cachedArt = File(artCacheDir, "track_${track.id}.jpg")
+            val fetched = OnlineMetadataResolver.resolveTrackArtOnline(
+                context = context,
+                trackId = track.id,
+                title = track.title,
+                artist = track.artist,
+                targetFile = cachedArt
+            )
+            if (fetched && cachedArt.exists() && cachedArt.length() > 0L) {
+                artFile = cachedArt
+                File(artCacheDir, "track_${track.id}.none").delete()
+            }
+        }
+
         val bitmap: Bitmap? = if (artFile != null && artFile.exists()) {
             val opts = BitmapFactory.Options().apply { inSampleSize = 4 }
             BitmapFactory.decodeFile(artFile.absolutePath, opts)
@@ -250,7 +346,7 @@ class AudioRepository(private val context: Context) {
         }
 
         if (bitmap == null || artFile == null) {
-            val fallback = Triple(null, 0xFFF5F5F5.toInt(), 0xFF64748B.toInt())
+            val fallback = Triple(null, 0xFFF5F5F5.toInt(), 0xFF1C1C22.toInt())
             artMemoryCache[track.id] = fallback
             return@withContext fallback
         }
@@ -294,8 +390,9 @@ class AudioRepository(private val context: Context) {
                 val chroma = maxC - minC
                 val (h, s, l) = rgbToHsl(r, g, b)
 
-                if (l < 0.06f || l > 0.94f) continue
-                if (chroma < 18 || s < 0.12f) {
+                if (l < 0.02f || l > 0.98f) continue
+                val isDarkVibrant = l in 0.025f..0.30f && chroma >= 10
+                if ((chroma < 14 || s < 0.10f) && !isDarkVibrant) {
                     neutralWeight += centerWeight
                     continue
                 }
@@ -311,8 +408,9 @@ class AudioRepository(private val context: Context) {
             }
         }
 
-        if (totalColorWeight <= 0.01f || totalColorWeight < neutralWeight * 0.08f) {
-            return Triple(0xFFE2E8F0.toInt(), 0xFF334155.toInt(), 0xFF475569.toInt())
+        // B&W or neutral covers: return pure silver-white and dark charcoal instead of blue fallback
+        if (totalColorWeight <= 0.01f || totalColorWeight < neutralWeight * 0.04f) {
+            return Triple(0xFFF1F5F9.toInt(), 0xFFFFFFFF.toInt(), 0xFF1C1C22.toInt())
         }
 
         // Find dominant 3-bucket neighborhood so adjacent hues reinforce each other
@@ -327,6 +425,10 @@ class AudioRepository(private val context: Context) {
                 bestClusterWeight = sum
                 bestIdx = i
             }
+        }
+
+        if (bestClusterWeight < 2.0f) {
+            return Triple(0xFFF1F5F9.toInt(), 0xFFFFFFFF.toInt(), 0xFF1C1C22.toInt())
         }
 
         fun clusterRgb(centerIdx: Int): Triple<Int, Int, Int> {
@@ -371,9 +473,9 @@ class AudioRepository(private val context: Context) {
         val secondary = if (secIdx != -1 && secWeight > buckets[bestIdx].weight * 0.28f) {
             val (sR, sG, sB) = clusterRgb(secIdx)
             val (secH, secS, secL) = rgbToHsl(sR, sG, sB)
-            hslToColor(secH, (secS * 1.05f).coerceIn(0.28f, 0.80f), secL.coerceIn(0.34f, 0.52f))
+            hslToColor(secH, (secS * 1.05f).coerceIn(0.28f, 0.80f), secL.coerceIn(0.24f, 0.45f))
         } else {
-            hslToColor(topH, (accentSat * 0.90f).coerceAtLeast(0.26f), topL.coerceIn(0.30f, 0.46f))
+            hslToColor(topH, (accentSat * 0.85f).coerceAtLeast(0.22f), topL.coerceIn(0.20f, 0.38f))
         }
 
         return Triple(accent, glow, secondary)

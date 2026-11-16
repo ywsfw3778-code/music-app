@@ -49,6 +49,7 @@ import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.FilterAlt
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Palette
@@ -93,6 +94,7 @@ import com.example.model.AppSettings
 import com.example.model.AppStrings
 import com.example.model.ArtworkBgMode
 import com.example.model.ExclusionReason
+import com.example.model.FolderItem
 import com.example.model.Track
 import com.example.ui.components.TrackArtwork
 import com.example.ui.components.formatDuration
@@ -108,6 +110,7 @@ fun SettingsScreen(
     activeCount: Int,
     excludedCount: Int,
     excludedTracks: List<Track>,
+    folderItems: List<FolderItem> = emptyList(),
     hasNotificationPermission: Boolean,
     accentColor: Color,
     onLanguageChange: (AppLanguage) -> Unit,
@@ -116,6 +119,8 @@ fun SettingsScreen(
     onMinDurationChange: (Int) -> Unit,
     onAddKeyword: (String) -> Unit,
     onRemoveKeyword: (String) -> Unit,
+    onToggleExcludedFolder: (String) -> Unit = {},
+    onSetAllFoldersExcluded: (Set<String>, Boolean) -> Unit = { _, _ -> },
     onDynamicAccentChange: (Boolean) -> Unit,
     onArtworkBgModeChange: (ArtworkBgMode) -> Unit,
     onGlassBlurChange: (Boolean) -> Unit,
@@ -410,6 +415,147 @@ fun SettingsScreen(
                         tint = accentColor,
                         modifier = Modifier.size(20.dp)
                     )
+                }
+            }
+        }
+
+        // Music Folders Management Section
+        item {
+            SettingsCard(
+                title = strings.musicFoldersSection,
+                icon = Icons.Rounded.Folder,
+                accentColor = accentColor
+            ) {
+                Text(
+                    text = strings.musicFoldersDesc,
+                    color = NocturneColors.TextSecondary,
+                    fontSize = 12.sp
+                )
+                Spacer(Modifier.height(12.dp))
+
+                if (folderItems.isNotEmpty()) {
+                    val allPaths = remember(folderItems) { folderItems.map { it.path }.toSet() }
+                    val allIncluded = folderItems.none { it.isExcluded }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (strings.isRtl) "${folderItems.size} مجلدات" else "${folderItems.size} folders",
+                            color = Color.White,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(accentColor.copy(alpha = 0.14f))
+                                .clickable {
+                                    onSetAllFoldersExcluded(allPaths, allIncluded)
+                                }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = if (allIncluded) strings.deselectAll else strings.selectAll,
+                                color = accentColor,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        folderItems.forEach { folder ->
+                            val isIncluded = !folder.isExcluded
+                            val relPath = folder.path.removePrefix("/storage/emulated/0/").ifBlank { folder.name }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color.White.copy(alpha = 0.05f))
+                                    .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(
+                                                if (isIncluded) accentColor.copy(alpha = 0.18f)
+                                                else Color.White.copy(alpha = 0.08f)
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Folder,
+                                            contentDescription = null,
+                                            tint = if (isIncluded) accentColor else NocturneColors.TextMuted,
+                                            modifier = Modifier.size(19.dp)
+                                        )
+                                    }
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Text(
+                                                text = folder.name,
+                                                color = Color.White,
+                                                fontSize = 13.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(50))
+                                                    .background(Color.White.copy(alpha = 0.08f))
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Text(
+                                                    text = "${folder.trackCount}",
+                                                    color = accentColor,
+                                                    fontSize = 10.5.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(
+                                            text = relPath,
+                                            color = NocturneColors.TextMuted,
+                                            fontSize = 11.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+
+                                Spacer(Modifier.width(10.dp))
+
+                                GlassSwitch(
+                                    checked = isIncluded,
+                                    accentColor = accentColor,
+                                    onCheckedChange = { onToggleExcludedFolder(folder.path) }
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

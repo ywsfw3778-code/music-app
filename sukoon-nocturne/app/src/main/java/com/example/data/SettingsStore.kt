@@ -37,6 +37,7 @@ class SettingsStore(private val context: Context) {
         val FAVORITE_IDS = stringSetPreferencesKey("favorite_ids")
         val MANUAL_EXCLUDED_IDS = stringSetPreferencesKey("manual_excluded_ids")
         val MANUAL_RESTORED_IDS = stringSetPreferencesKey("manual_restored_ids")
+        val EXCLUDED_FOLDERS = stringSetPreferencesKey("excluded_folders")
         val PLAYLISTS_JSON = stringPreferencesKey("playlists_json")
         val SAVED_LYRICS_JSON = stringPreferencesKey("saved_lyrics_json")
     }
@@ -58,6 +59,7 @@ class SettingsStore(private val context: Context) {
             autoExcludeRecordings = prefs[Keys.AUTO_EXCLUDE_REC] ?: true,
             minDurationSec = (prefs[Keys.MIN_DURATION_SEC] ?: 60).coerceIn(0, 180),
             customKeywords = keywords,
+            excludedFolderPaths = prefs[Keys.EXCLUDED_FOLDERS] ?: emptySet(),
             dynamicAccent = prefs[Keys.DYNAMIC_ACCENT] ?: true,
             artworkBgMode = bgMode,
             glassBlurEnabled = prefs[Keys.GLASS_BLUR_ENABLED] ?: true,
@@ -82,6 +84,7 @@ class SettingsStore(private val context: Context) {
                 autoExcludeRecordings = prefs[Keys.AUTO_EXCLUDE_REC] ?: true,
                 minDurationSec = (prefs[Keys.MIN_DURATION_SEC] ?: 60).coerceIn(0, 180),
                 customKeywords = prefs[Keys.CUSTOM_KEYWORDS].orEmpty().split("\n").filter { it.isNotBlank() },
+                excludedFolderPaths = prefs[Keys.EXCLUDED_FOLDERS] ?: emptySet(),
                 dynamicAccent = prefs[Keys.DYNAMIC_ACCENT] ?: true,
                 artworkBgMode = when (prefs[Keys.ARTWORK_BG_MODE]) {
                     "PARTIAL" -> ArtworkBgMode.PARTIAL
@@ -102,6 +105,25 @@ class SettingsStore(private val context: Context) {
             prefs[Keys.ARTWORK_BG_MODE] = next.artworkBgMode.name
             prefs[Keys.GLASS_BLUR_ENABLED] = next.glassBlurEnabled
             prefs[Keys.LYRIC_OFFSET_MS] = next.lyricOffsetMs
+            prefs[Keys.EXCLUDED_FOLDERS] = next.excludedFolderPaths
+        }
+    }
+
+    suspend fun toggleExcludedFolder(folderPath: String) {
+        context.dataStore.edit { prefs ->
+            val set = (prefs[Keys.EXCLUDED_FOLDERS] ?: emptySet()).toMutableSet()
+            if (set.contains(folderPath)) {
+                set.remove(folderPath)
+            } else {
+                set.add(folderPath)
+            }
+            prefs[Keys.EXCLUDED_FOLDERS] = set
+        }
+    }
+
+    suspend fun setAllFoldersExcluded(allPaths: Set<String>, excludeAll: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.EXCLUDED_FOLDERS] = if (excludeAll) allPaths else emptySet()
         }
     }
 
