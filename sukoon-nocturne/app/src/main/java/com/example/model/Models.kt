@@ -1,5 +1,7 @@
 package com.example.model
 
+import androidx.compose.runtime.Immutable
+
 enum class AppLanguage { AR, EN }
 
 enum class ArtworkBgMode { FULL, PARTIAL, OFF }
@@ -14,6 +16,7 @@ enum class RepeatMode { OFF, ALL, ONE }
 
 enum class ExclusionReason { NONE, RECORDING, SHORT_CLIP, KEYWORD, MANUAL, FOLDER }
 
+@Immutable
 data class Track(
     val id: String,
     val contentUri: String,
@@ -35,6 +38,7 @@ data class Track(
     val exclusionReason: ExclusionReason = ExclusionReason.NONE
 )
 
+@Immutable
 data class Playlist(
     val id: String,
     val name: String,
@@ -42,11 +46,13 @@ data class Playlist(
     val createdAt: Long = System.currentTimeMillis()
 )
 
+@Immutable
 data class LyricLine(
     val timeMs: Long,
     val text: String
 )
 
+@Immutable
 data class LyricsData(
     val syncedLyrics: String? = null,
     val plainLyrics: String? = null,
@@ -54,6 +60,7 @@ data class LyricsData(
     val sourceName: String = ""
 )
 
+@Immutable
 data class LrcSearchResult(
     val id: Long,
     val trackName: String,
@@ -64,6 +71,7 @@ data class LrcSearchResult(
     val plainLyrics: String?
 )
 
+@Immutable
 data class Artist(
     val name: String,
     val trackCount: Int,
@@ -72,6 +80,7 @@ data class Artist(
     val trackIds: List<String> = emptyList()
 )
 
+@Immutable
 data class Album(
     val id: String,
     val title: String,
@@ -81,6 +90,7 @@ data class Album(
     val trackIds: List<String> = emptyList()
 )
 
+@Immutable
 data class FolderItem(
     val path: String,
     val name: String,
@@ -88,6 +98,7 @@ data class FolderItem(
     val isExcluded: Boolean = false
 )
 
+@Immutable
 data class AppSettings(
     val language: AppLanguage = AppLanguage.AR,
     val crossfadeEnabled: Boolean = true,

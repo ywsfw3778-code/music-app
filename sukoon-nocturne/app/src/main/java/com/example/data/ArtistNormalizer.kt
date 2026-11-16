@@ -368,6 +368,35 @@ object ArtistNormalizer {
             }
         }
 
+        // If title is "Artist(s) - SongTitle", strip the artists prefix
+        if (title.contains(" - ")) {
+            val beforeDash = title.substringBefore(" - ").trim()
+            val afterDash = title.substringAfter(" - ").trim()
+            if (afterDash.isNotBlank() && (beforeDash.equals(artist, ignoreCase = true) ||
+                beforeDash.contains(" x ", ignoreCase = true) ||
+                beforeDash.contains(" & ") ||
+                beforeDash.contains(" ft", ignoreCase = true) ||
+                lookupAlias(beforeDash) != null)) {
+                title = afterDash
+            }
+        }
+
+        // If title has bilingual compound English & Arabic (e.g. "Sa3eed - سعيد", "ElBakht | ويجز - البخت", "BARBARY | مروان بابلو")
+        // prefer the clean English title so lyric search matches platforms cleanly
+        if (title.contains('|') || title.contains(" - ")) {
+            val sep = if (title.contains('|')) "|" else " - "
+            val parts = title.split(sep).map { it.trim() }
+            val latinParts = parts.filter { p ->
+                p.any { it in 'a'..'z' || it in 'A'..'Z' } && !p.any { it in '\u0600'..'\u06FF' }
+            }
+            if (latinParts.isNotEmpty()) {
+                val candidate = latinParts.first()
+                if (candidate.length >= 2 && !candidate.equals(artist, ignoreCase = true)) {
+                    title = candidate
+                }
+            }
+        }
+
         // Clean up redundant double spaces or trailing dashes
         title = title.replace(Regex("""\s{2,}"""), " ").trim()
         title = title.trimEnd('-', '_', ' ')

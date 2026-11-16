@@ -368,6 +368,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 if (t.artUri != null && !t.artUri.startsWith("track_art://")) continue
 
                 val cachedFile = File(artCacheDir, "track_${t.id}.jpg")
+                val noArtMarker = File(artCacheDir, "track_${t.id}.none")
+                if (noArtMarker.exists()) continue
                 val fullPath = File(t.folderPath, t.fileName).absolutePath
 
                 // 1. Try embedded picture

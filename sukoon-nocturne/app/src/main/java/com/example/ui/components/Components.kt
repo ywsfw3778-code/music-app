@@ -58,6 +58,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -100,32 +101,37 @@ fun TrackArtwork(
         value = AudioRepository.resolveArtUri(context, artUri)
     }
 
-    val shape = RoundedCornerShape(cornerRadius)
+    val shape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
+    val bgBrush = remember(accentColor) {
+        Brush.linearGradient(
+            listOf(
+                accentColor.copy(alpha = 0.22f),
+                Color(0xFF14141C)
+            )
+        )
+    }
     Box(
         modifier = modifier
             .size(size)
             .clip(shape)
-            .background(
-                Brush.linearGradient(
-                    listOf(
-                        accentColor.copy(alpha = 0.22f),
-                        Color(0xFF14141C)
-                    )
-                )
-            ),
+            .background(bgBrush),
         contentAlignment = Alignment.Center
     ) {
         Crossfade(
             targetState = resolvedUri,
-            animationSpec = tween(320),
+            animationSpec = tween(280),
             label = "trackArtCrossfade"
         ) { uri ->
             if (!uri.isNullOrBlank()) {
                 AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(uri)
-                        .crossfade(true)
-                        .build(),
+                    model = remember(uri) {
+                        ImageRequest.Builder(context)
+                            .data(uri)
+                            .memoryCacheKey(uri)
+                            .diskCacheKey(uri)
+                            .crossfade(true)
+                            .build()
+                    },
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()

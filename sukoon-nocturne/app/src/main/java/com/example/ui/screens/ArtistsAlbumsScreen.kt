@@ -255,7 +255,7 @@ fun ArtistsAlbumsScreen(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                items(filteredArtists, key = { it.name }) { artist ->
+                                items(filteredArtists, key = { it.name }, contentType = { "artist_grid_card" }) { artist ->
                                     ArtistGridItem(
                                         artist = artist,
                                         artistPhotoUrl = artistPhotos[artist.name],
@@ -289,7 +289,7 @@ fun ArtistsAlbumsScreen(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                items(filteredAlbums, key = { it.id }) { album ->
+                                items(filteredAlbums, key = { it.id }, contentType = { "album_grid_card" }) { album ->
                                     AlbumGridItem(
                                         album = album,
                                         albumArtUrl = albumArt[album.id] ?: album.artUri,
@@ -844,7 +844,7 @@ private fun ArtistDetailView(
         }
 
         // Track items
-        items(tracks, key = { it.id }) { track ->
+        items(tracks, key = { it.id }, contentType = { "track_row" }) { track ->
             val trackArt = track.artUri?.takeIf { !it.startsWith("track_art://") }
                 ?: photo
             TrackRowItem(
@@ -1037,7 +1037,7 @@ private fun AlbumDetailView(
         }
 
         // Track items
-        items(tracks, key = { it.id }) { track ->
+        items(tracks, key = { it.id }, contentType = { "track_row" }) { track ->
             val trackArt = track.artUri?.takeIf { !it.startsWith("track_art://") }
                 ?: bannerArt
             TrackRowItem(

@@ -254,7 +254,7 @@ fun LibraryScreen(
                                 contentPadding = listPadding,
                                 verticalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
-                                items(filteredTracks, key = { it.id }) { track ->
+                                items(filteredTracks, key = { it.id }, contentType = { "track_row" }) { track ->
                                     TrackRowItem(
                                         track = track,
                                         isCurrent = track.id == currentTrackId,
@@ -286,7 +286,7 @@ fun LibraryScreen(
                                 contentPadding = listPadding,
                                 verticalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
-                                items(favTracks, key = { it.id }) { track ->
+                                items(favTracks, key = { it.id }, contentType = { "track_row" }) { track ->
                                     TrackRowItem(
                                         track = track,
                                         isCurrent = track.id == currentTrackId,
@@ -355,7 +355,7 @@ fun LibraryScreen(
                                         contentPadding = bottomPadding,
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        items(plTracks, key = { it.id }) { track ->
+                                        items(plTracks, key = { it.id }, contentType = { "track_row" }) { track ->
                                             TrackRowItem(
                                                 track = track,
                                                 isCurrent = track.id == currentTrackId,
@@ -394,7 +394,7 @@ fun LibraryScreen(
                                         contentPadding = bottomPadding,
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        items(playlists, key = { it.id }) { pl ->
+                                        items(playlists, key = { it.id }, contentType = { "playlist_card" }) { pl ->
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
