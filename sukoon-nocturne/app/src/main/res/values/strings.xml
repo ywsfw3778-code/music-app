@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">سُكون - Nocturne</string>
+    <string name="app_header_title">سُكون — NOCTURNE</string>
+    <string name="app_subtitle">مشغل موسيقى أوفلاين احترافي</string>
+    <string name="search_hint">ابحث عن أغنية، فنان، أو مجلد...</string>
+    <string name="tab_songs">الأغاني</string>
+    <string name="tab_folders">المجلدات</string>
+    <string name="tab_playlists">قوائم التشغيل</string>
+    <string name="tab_excluded">المستبعدة</string>
+    <string name="tab_settings">الإعدادات</string>
+    <string name="player_tab_cover">الغلاف</string>
+    <string name="player_tab_lyrics">الكلمات</string>
+    <string name="player_tab_queue">قائمة الانتظار (التالي)</string>
+    <string name="delete_confirm_word">مسح</string>
+    <string name="delete_playlist_final_confirm">هل أنت متأكد من حذف قائمة التشغيل نهائياً؟</string>
+    <string name="yes_sure_delete">نعم، متأكد احذفها</string>
+    <string name="cancel_back">تراجع</string>
+</resources>

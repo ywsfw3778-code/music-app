@@ -1,0 +1,6 @@
+{
+  "name": "سُكون - Nocturne",
+  "description": "مشغل موسيقى أوفلاين احترافي بشاشات Super AMOLED وتصميم قطرة الماء الزجاجية والفلترة الذكية والتداخل السلس",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
