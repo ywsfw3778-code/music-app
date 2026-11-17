@@ -56,14 +56,34 @@ function Get-Versions([int]$count = 15) {
 
 function Resolve-Version([string]$value) {
     $number = 0
-    if (-not [int]::TryParse($value, [ref]$number)) {
-        throw "Give the snapshot number shown by: snap.bat list"
+    if ([int]::TryParse($value, [ref]$number)) {
+        $items = @(Get-Versions 100)
+        if ($number -lt 1 -or $number -gt $items.Count) {
+            throw "No snapshot number $number. Run: snap.bat list"
+        }
+        return $items[$number - 1]
     }
-    $items = @(Get-Versions 100)
-    if ($number -lt 1 -or $number -gt $items.Count) {
-        throw "No snapshot number $number. Run: snap.bat list"
+
+    # Also accept a commit hash (e.g. the one printed as an undo hint).
+    $resolved = (& git rev-parse --verify --short=7 "$value^{commit}" 2>$null) -join ''
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($resolved)) {
+        throw "Unknown snapshot '$value'. Give a number from: snap.bat list"
     }
-    return $items[$number - 1]
+    $subject = (& git log -1 --pretty=format:'%s' $resolved) -join ''
+    $date = (& git log -1 '--date=format:%Y-%m-%d %H:%M' --pretty=format:'%ad' $resolved) -join ''
+    return [pscustomobject]@{
+        Index   = $null
+        Hash    = $resolved
+        Date    = $date
+        Subject = $subject
+    }
+}
+
+function Get-VersionLabel($version) {
+    if ($null -ne $version.Index) {
+        return ('snapshot #{0} ({1})' -f $version.Index, $version.Hash)
+    }
+    return ('snapshot {0}' -f $version.Hash)
 }
 
 function Test-CleanTree {
@@ -111,7 +131,7 @@ switch ($Command.ToLower()) {
         if ([string]::IsNullOrWhiteSpace($Argument)) { throw 'Usage: snap.bat show <number>' }
         $target = Resolve-Version $Argument
         Write-Host ''
-        Write-Host ("Snapshot #{0}  {1}  {2}" -f $target.Index, $target.Hash, $target.Subject)
+        Write-Host ("{0}  {1}" -f (Get-VersionLabel $target), $target.Subject)
         Write-Host ''
         & git show --stat --oneline $target.Hash
     }
@@ -135,8 +155,8 @@ switch ($Command.ToLower()) {
         if ([string]::IsNullOrWhiteSpace($Argument)) { throw 'Usage: snap.bat back <number>' }
         $target = Resolve-Version $Argument
         Write-Host ''
-        Write-Host ("Restoring snapshot #{0}: {1}" -f $target.Index, $target.Subject)
-        Write-Host ("  commit: {0}  ({1})" -f $target.Hash, $target.Date)
+        Write-Host ("Restoring {0}: {1}" -f (Get-VersionLabel $target), $target.Subject)
+        Write-Host ("  date: {0}" -f $target.Date)
         Write-Host ''
         Write-Host 'Your current work will be saved as a separate snapshot first, so nothing is lost.'
         $answer = Read-Host 'Continue? (y/n)'
@@ -145,22 +165,47 @@ switch ($Command.ToLower()) {
             exit 0
         }
 
+        $checkpointHash = ''
         if (-not (Test-CleanTree)) {
             & git add -A
-            Invoke-GitCommit ('wip: checkpoint before restore to ' + $target.Hash)
-            Write-Host 'Current work saved.'
+            Invoke-GitCommit ('wip: work before restoring ' + $target.Hash)
+            $checkpointHash = (& git rev-parse --short=7 HEAD) -join ''
+            Write-Host ('Current work saved as snapshot {0}.' -f $checkpointHash)
         }
 
-        & git read-tree -u --reset $target.Hash
-        if ($LASTEXITCODE -ne 0) { throw 'Could not restore that snapshot (existing changes block it).' }
-
-        if (Test-CleanTree) {
-            Write-Host ("Already at snapshot #{0}." -f $target.Index)
-            exit 0
+        # Keep this helper available even when restoring a snapshot that predates it.
+        $toolsDir = Join-Path $repoRoot 'tools'
+        $toolsBackupRoot = Join-Path $env:TEMP ('snap_tools_' + [guid]::NewGuid().ToString('N'))
+        $hasTools = Test-Path $toolsDir
+        if ($hasTools) {
+            New-Item -ItemType Directory -Path $toolsBackupRoot -Force | Out-Null
+            Copy-Item $toolsDir (Join-Path $toolsBackupRoot 'tools') -Recurse -Force
         }
 
-        Invoke-GitCommit ('restore: snapshot ' + $target.Index + ' (' + $target.Hash + ')')
-        Write-Host ('Done. Project is back at snapshot #{0}. Undo this with: tools\snap.bat back 1' -f $target.Index)
+        try {
+            & git read-tree -u --reset $target.Hash
+            if ($LASTEXITCODE -ne 0) { throw 'Could not restore that snapshot (existing changes block it).' }
+
+            if ($hasTools) {
+                Copy-Item (Join-Path $toolsBackupRoot 'tools') $repoRoot -Recurse -Force
+                & git add -A -- tools
+            }
+
+            if (Test-CleanTree) {
+                Write-Host ('Already at {0}.' -f (Get-VersionLabel $target))
+                exit 0
+            }
+
+            Invoke-GitCommit ('restore: ' + $target.Hash + ' ' + $target.Subject)
+        }
+        finally {
+            if (Test-Path $toolsBackupRoot) { Remove-Item $toolsBackupRoot -Recurse -Force -ErrorAction SilentlyContinue }
+        }
+
+        Write-Host ('Done. Project is back at {0}.' -f (Get-VersionLabel $target))
+        if (-not [string]::IsNullOrWhiteSpace($checkpointHash)) {
+            Write-Host ('To undo this restore:  tools\snap.bat back {0}' -f $checkpointHash)
+        }
     }
 
     default {
