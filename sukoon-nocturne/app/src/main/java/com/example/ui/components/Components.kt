@@ -103,8 +103,17 @@ fun TrackArtwork(
             )
         )
     }
-    val validUri = remember(artUri) {
-        if (!artUri.isNullOrBlank() && !artUri.startsWith("track_art://")) artUri else null
+    val resolvedUri by produceState<String?>(
+        initialValue = if (!artUri.isNullOrBlank() && !artUri.startsWith("track_art://")) artUri else null,
+        key1 = artUri
+    ) {
+        if (artUri.isNullOrBlank()) {
+            value = null
+        } else if (!artUri.startsWith("track_art://")) {
+            value = artUri
+        } else {
+            value = AudioRepository.resolveArtUri(context, artUri)
+        }
     }
 
     Box(
@@ -114,14 +123,14 @@ fun TrackArtwork(
             .background(bgBrush),
         contentAlignment = Alignment.Center
     ) {
-        if (validUri != null) {
+        if (!resolvedUri.isNullOrBlank()) {
             AsyncImage(
-                model = remember(validUri) {
+                model = remember(resolvedUri) {
                     ImageRequest.Builder(context)
-                        .data(validUri)
+                        .data(resolvedUri)
                         .size(128, 128)
-                        .memoryCacheKey(validUri)
-                        .diskCacheKey(validUri)
+                        .memoryCacheKey(resolvedUri)
+                        .diskCacheKey(resolvedUri)
                         .crossfade(false)
                         .build()
                 },

@@ -291,29 +291,30 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun startAlbumArtResolver() {
         viewModelScope.launch(Dispatchers.IO) {
-            delay(800)
             val ctx = getApplication<Application>()
-            val currentTracks = activeTracks.value
-            val uniqueAlbums = currentTracks
-                .filter { !it.isExcluded && !ArtistNormalizer.isFakeOrJunkAlbum(it.album, it.artist, 2) }
-                .map { Pair(it.album.trim(), ArtistNormalizer.normalizeArtist(it.artist)) }
-                .distinct()
+            activeTracks.collect { currentTracks ->
+                if (currentTracks.isEmpty()) return@collect
+                val uniqueAlbums = currentTracks
+                    .filter { !it.isExcluded && !ArtistNormalizer.isFakeOrJunkAlbum(it.album, it.artist, 2) }
+                    .map { Pair(it.album.trim(), ArtistNormalizer.normalizeArtist(it.artist)) }
+                    .distinct()
 
-            val map = _albumArt.value.toMutableMap()
-            var addedAny = false
-            for ((albumTitle, artistName) in uniqueAlbums) {
-                val groupKey = "${albumTitle.lowercase()}:::${artistName.lowercase()}"
-                if (map.containsKey(groupKey)) continue
-                val coverUri = com.example.data.OnlineMetadataResolver.resolveAlbumArtOnline(ctx, albumTitle, artistName)
-                if (!coverUri.isNullOrBlank()) {
-                    map[groupKey] = coverUri
-                    addedAny = true
+                val map = _albumArt.value.toMutableMap()
+                var addedAny = false
+                for ((albumTitle, artistName) in uniqueAlbums) {
+                    val groupKey = "${albumTitle.lowercase()}:::${artistName.lowercase()}"
+                    if (map.containsKey(groupKey) && !map[groupKey].isNullOrBlank()) continue
+                    val coverUri = com.example.data.OnlineMetadataResolver.resolveAlbumArtOnline(ctx, albumTitle, artistName)
+                    if (!coverUri.isNullOrBlank()) {
+                        map[groupKey] = coverUri
+                        addedAny = true
+                        _albumArt.value = LinkedHashMap(map)
+                    }
+                    delay(50)
+                }
+                if (addedAny) {
                     _albumArt.value = LinkedHashMap(map)
                 }
-                delay(80)
-            }
-            if (addedAny) {
-                _albumArt.value = LinkedHashMap(map)
             }
         }
     }
@@ -352,57 +353,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     updated[i] = t.copy(artUri = albumCover)
                     hasChanges = true
                 }
-            }
-
-            if (hasChanges) {
-                _allScannedTracks.value = ArrayList(updated)
-                audioRepo.saveTracksToCache(updated)
-                hasChanges = false
-            }
-
-            // Quiet background pass for remaining tracks without covers
-            var batchCount = 0
-            for (i in updated.indices) {
-                val t = updated[i]
-                if (t.isExcluded) continue
-                if (t.artUri != null && !t.artUri.startsWith("track_art://")) continue
-
-                val cachedFile = File(artCacheDir, "track_${t.id}.jpg")
-                val noArtMarker = File(artCacheDir, "track_${t.id}.none")
-                if (noArtMarker.exists()) continue
-                val fullPath = File(t.folderPath, t.fileName).absolutePath
-
-                // 1. Try embedded picture
-                val embedded = AudioRepository.extractOrGetTrackArtFile(ctx, t.id, t.contentUri, fullPath)
-                if (embedded != null && embedded.exists() && embedded.length() > 0L) {
-                    val uri = Uri.fromFile(embedded).toString()
-                    updated[i] = t.copy(artUri = uri)
-                    hasChanges = true
-                    batchCount++
-                    continue
-                }
-
-                // 2. Resolve from online Deezer / iTunes
-                val fetched = com.example.data.OnlineMetadataResolver.resolveTrackArtOnline(
-                    context = ctx,
-                    trackId = t.id,
-                    title = t.title,
-                    artist = t.artist,
-                    targetFile = cachedFile
-                )
-                if (fetched && cachedFile.exists() && cachedFile.length() > 0L) {
-                    val uri = Uri.fromFile(cachedFile).toString()
-                    updated[i] = t.copy(artUri = uri)
-                    hasChanges = true
-                    batchCount++
-                }
-
-                if (batchCount >= 20) {
-                    _allScannedTracks.value = ArrayList(updated)
-                    audioRepo.saveTracksToCache(updated)
-                    batchCount = 0
-                }
-                delay(150)
             }
 
             if (hasChanges) {

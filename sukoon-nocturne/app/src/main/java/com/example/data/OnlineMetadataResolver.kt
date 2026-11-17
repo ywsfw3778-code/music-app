@@ -42,12 +42,19 @@ object OnlineMetadataResolver {
             albumArtCache[cacheKey] = uriStr
             return@withContext uriStr
         }
-        if (noArtMarker.exists()) return@withContext null
+        if (noArtMarker.exists()) {
+            val ageMs = System.currentTimeMillis() - noArtMarker.lastModified()
+            if (ageMs < 30 * 60 * 1000L) return@withContext null
+            noArtMarker.delete()
+        }
+
+        val arabicArtist = ArtistNormalizer.getArtistArabicName(cleanArtist)
 
         // 1. Try Deezer Search
-        val queries = listOf(
+        val queries = listOfNotNull(
             "$cleanArtist $cleanAlbum",
-            cleanAlbum
+            cleanAlbum,
+            arabicArtist?.let { "$it $cleanAlbum" }
         )
 
         var coverUrl: String? = null
@@ -238,32 +245,41 @@ object OnlineMetadataResolver {
             cachedFile.delete()
         }
         if (noArtMarker.exists()) {
-            if (canonical.equals("Wegz", ignoreCase = true)) {
-                noArtMarker.delete()
-            } else {
+            val ageMs = System.currentTimeMillis() - noArtMarker.lastModified()
+            if (ageMs < 30 * 60 * 1000L && !canonical.equals("Wegz", ignoreCase = true)) {
                 return@withContext null
+            } else {
+                noArtMarker.delete()
             }
         }
 
-        val encoded = runCatching { URLEncoder.encode(canonical, "UTF-8") }.getOrNull() ?: return@withContext null
-        val url = "https://api.deezer.com/search/artist?q=$encoded&limit=1"
-        val req = Request.Builder()
-            .url(url)
-            .header("User-Agent", "Sukoon-Nocturne/2.0 (Android)")
-            .build()
+        val arabicName = ArtistNormalizer.getArtistArabicName(canonical)
+        val queries = listOfNotNull(canonical, arabicName)
 
-        val photoUrl = runCatching {
-            client.newCall(req).execute().use { resp ->
-                if (!resp.isSuccessful) return@use null
-                val body = resp.body?.string().orEmpty()
-                val json = JSONObject(body)
-                val data = json.optJSONArray("data") ?: return@use null
-                if (data.length() == 0) return@use null
-                val first = data.getJSONObject(0)
-                first.optString("picture_medium").takeIf { it.isNotBlank() }
-                    ?: first.optString("picture_big").takeIf { it.isNotBlank() }
-            }
-        }.getOrNull()
+        var photoUrl: String? = null
+        for (q in queries) {
+            val encoded = runCatching { URLEncoder.encode(q, "UTF-8") }.getOrNull() ?: continue
+            val url = "https://api.deezer.com/search/artist?q=$encoded&limit=1"
+            val req = Request.Builder()
+                .url(url)
+                .header("User-Agent", "Sukoon-Nocturne/2.0 (Android)")
+                .build()
+
+            photoUrl = runCatching {
+                client.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) return@use null
+                    val body = resp.body?.string().orEmpty()
+                    val json = JSONObject(body)
+                    val data = json.optJSONArray("data") ?: return@use null
+                    if (data.length() == 0) return@use null
+                    val first = data.getJSONObject(0)
+                    first.optString("picture_big").takeIf { it.isNotBlank() }
+                        ?: first.optString("picture_medium").takeIf { it.isNotBlank() }
+                }
+            }.getOrNull()
+
+            if (!photoUrl.isNullOrBlank()) break
+        }
 
         if (!photoUrl.isNullOrBlank()) {
             val success = downloadToFile(photoUrl, cachedFile)

@@ -154,6 +154,38 @@ object ArtistNormalizer {
         "el waili" to "El Waili"
     )
 
+    fun getArtistArabicName(artist: String?): String? {
+        val norm = normalizeArtist(artist).lowercase()
+        return when (norm) {
+            "marwan moussa" -> "مروان موسى"
+            "wegz" -> "ويجز"
+            "abyusif" -> "أبيوسف"
+            "marwan pablo" -> "مروان بابلو"
+            "abo el anwar" -> "أبو الأنوار"
+            "karim osama" -> "كريم أسامة"
+            "afroto" -> "عفروتو"
+            "lege-cy" -> "ليجي-سي"
+            "molotof" -> "مولوتوف"
+            "cairokee" -> "كايروكي"
+            "amr diab" -> "عمرو دياب"
+            "mohamed mounir" -> "محمد منير"
+            "tamer hosny" -> "تامر حسني"
+            "hamza namira" -> "حمزة نمرة"
+            "ahmed saad" -> "أحمد سعد"
+            "ziad zaza" -> "زياد ظاظا"
+            "arsenik" -> "أرسينك"
+            "el joker" -> "الجوكر"
+            "muslim" -> "مسلم"
+            "essam sasa" -> "عصام صاصا"
+            "sharmoofers" -> "شارموفرز"
+            "massar egbari" -> "مسار إجباري"
+            "sherine" -> "شيرين"
+            "angham" -> "أنغام"
+            "hussein yasser" -> "حسين ياسر"
+            else -> null
+        }
+    }
+
     private val titleJunkRegex = Regex(
         """(\(official\s*(music\s*)?video\)|\[official\s*(music\s*)?video\]|\(official\s*(music\s*)?audio\)|\(official\s*audio\)|\[official\s*audio\]|\(official\s*visualizer\)|\(audio\)|\(official\)|\(visualizer\)|\(clip\)|\(كليب\)|فيديو\s*كليب|\(mp3_\d+k\)|\(\d+k\)|\(2k_hd\)|\(hd\)|\.mp3|\.flac|\.m4a|\.wav|\[\s*instrumental\s*\]|prod\.?\s*by\s*[^_()]+)""",
         RegexOption.IGNORE_CASE

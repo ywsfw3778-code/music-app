@@ -220,9 +220,12 @@ fun ArtistsAlbumsScreen(
                         val albumTracks = remember(currentAlbum, tracks) {
                             tracks.filter { currentAlbum.trackIds.contains(it.id) || (it.album == currentAlbum.title && it.artist == currentAlbum.artist) }
                         }
+                        val albumArtCandidate = albumArt[currentAlbum.id]
+                            ?: currentAlbum.artUri
+                            ?: albumTracks.firstNotNullOfOrNull { it.artUri?.takeIf { u -> !u.startsWith("track_art://") } }
                         AlbumDetailView(
                             album = currentAlbum,
-                            albumArtUrl = albumArt[currentAlbum.id] ?: currentAlbum.artUri,
+                            albumArtUrl = albumArtCandidate,
                             tracks = albumTracks,
                             strings = strings,
                             currentTrackId = currentTrackId,
@@ -296,9 +299,12 @@ fun ArtistsAlbumsScreen(
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 items(filteredAlbums, key = { it.id }, contentType = { "album_grid_card" }) { album ->
+                                    val itemArt = albumArt[album.id]
+                                        ?: album.artUri
+                                        ?: tracks.firstOrNull { (album.trackIds.contains(it.id) || (it.album == album.title && it.artist == album.artist)) && !it.artUri.isNullOrBlank() && !it.artUri.startsWith("track_art://") }?.artUri
                                     AlbumGridItem(
                                         album = album,
-                                        albumArtUrl = albumArt[album.id] ?: album.artUri,
+                                        albumArtUrl = itemArt,
                                         strings = strings,
                                         accentColor = accentColor,
                                         onClick = { selectedAlbum = album }

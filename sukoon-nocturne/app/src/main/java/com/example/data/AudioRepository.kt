@@ -181,7 +181,7 @@ class AudioRepository(private val context: Context) {
                 val artUri = when {
                     cachedArt.exists() && cachedArt.length() > 0L -> Uri.fromFile(cachedArt).toString()
                     cachedAlbumArt.exists() && cachedAlbumArt.length() > 0L -> Uri.fromFile(cachedAlbumArt).toString()
-                    else -> null
+                    else -> "track_art://$id?uri=${Uri.encode(contentUri)}&path=${Uri.encode(filePath)}"
                 }
 
                 tracks.add(
