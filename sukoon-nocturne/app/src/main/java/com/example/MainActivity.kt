@@ -369,7 +369,8 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                                     }
                                     context.startActivity(intent)
                                 },
-                                bottomPadding = listBottomPad
+                                bottomPadding = listBottomPad,
+                                isPageActive = activeTab == MainTab.SETTINGS
                             )
                         }
                     }

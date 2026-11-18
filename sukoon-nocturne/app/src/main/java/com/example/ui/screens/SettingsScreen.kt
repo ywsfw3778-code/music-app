@@ -99,7 +99,10 @@ import com.example.model.Track
 import com.example.ui.components.TrackArtwork
 import com.example.ui.components.formatDuration
 import com.example.ui.theme.AppFontFamily
+import com.example.ui.theme.LocalWaterGlassState
 import com.example.ui.theme.NocturneColors
+import com.example.ui.theme.matteCard
+import com.example.ui.theme.waterGlassContent
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -128,14 +131,21 @@ fun SettingsScreen(
     onRescan: () -> Unit,
     onClearData: () -> Unit,
     onOpenNotificationSettings: () -> Unit,
-    bottomPadding: PaddingValues
+    bottomPadding: PaddingValues,
+    isPageActive: Boolean = true
 ) {
     var keywordInput by remember { mutableStateOf("") }
     var showClearDialog by remember { mutableStateOf(false) }
     var showExcludedPage by remember { mutableStateOf(false) }
     var showFoldersPage by remember { mutableStateOf(false) }
+    val waterGlass = LocalWaterGlassState.current
 
     Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .waterGlassContent(if (isPageActive) waterGlass else null)
+        ) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -702,6 +712,7 @@ if (showClearDialog) {
         }
     )
 }
+    } // close waterGlassContent Box
 }
 
 @Composable
@@ -714,8 +725,7 @@ private fun SettingsCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(22.dp))
-            .background(Color(0x9E0B0D14))
+            .matteCard(RoundedCornerShape(22.dp))
             .border(1.dp, Color.White.copy(alpha = 0.09f), RoundedCornerShape(22.dp))
             .padding(16.dp)
     ) {
@@ -1079,8 +1089,7 @@ private fun ExcludedTracksPage(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color(0x9E0B0D14))
+                            .matteCard(RoundedCornerShape(20.dp))
                             .border(1.dp, Color.White.copy(alpha = 0.09f), RoundedCornerShape(20.dp))
                             .padding(28.dp)
                     ) {
@@ -1133,8 +1142,7 @@ private fun ExcludedTracksPage(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(Color(0x9E0B0D14))
+                                .matteCard(RoundedCornerShape(16.dp))
                                 .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
                                 .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
