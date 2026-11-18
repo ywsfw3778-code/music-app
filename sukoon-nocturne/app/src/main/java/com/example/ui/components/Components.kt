@@ -551,12 +551,13 @@ fun formatDuration(seconds: Double): String {
     val total = seconds.toLong().coerceAtLeast(0L)
     val mins = total / 60
     val secs = total % 60
-    return "%02d:%02d".format(mins, secs)
+    // Manual formatting: String.format allocates a Formatter on every call and this runs per row.
+    return mins.toString().padStart(2, '0') + ":" + secs.toString().padStart(2, '0')
 }
 
 fun formatMillis(ms: Long): String {
     val total = (ms / 1000L).coerceAtLeast(0L)
     val mins = total / 60
     val secs = total % 60
-    return "%d:%02d".format(mins, secs)
+    return mins.toString() + ":" + secs.toString().padStart(2, '0')
 }

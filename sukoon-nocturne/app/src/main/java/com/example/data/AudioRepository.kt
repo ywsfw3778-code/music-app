@@ -28,18 +28,25 @@ class AudioRepository(private val context: Context) {
         private val artSemaphore = Semaphore(4)
         private val artMemoryCache = ConcurrentHashMap<String, Triple<String?, Int, Int>>()
 
+        // Remembers already-resolved "track_art://..." sentinels so recycling list rows never
+        // re-query MediaStore / re-extract embedded artwork while scrolling. "" means "no art".
+        private val resolvedArtCache = ConcurrentHashMap<String, String>()
+
         suspend fun resolveArtUri(context: Context, rawUri: String?): String? {
             if (rawUri.isNullOrBlank()) return null
             if (!rawUri.startsWith("track_art://")) return rawUri
+            resolvedArtCache[rawUri]?.let { cached -> return cached.ifEmpty { null } }
             return withContext(Dispatchers.IO) {
                 artSemaphore.withPermit {
                     val parsed = Uri.parse(rawUri)
                     val trackId = parsed.host ?: return@withPermit null
                     val contentUri = parsed.getQueryParameter("uri").orEmpty()
                     val filePath = parsed.getQueryParameter("path").orEmpty()
-                    extractOrGetTrackArtFile(context, trackId, contentUri, filePath)?.let {
+                    val resolved = extractOrGetTrackArtFile(context, trackId, contentUri, filePath)?.let {
                         Uri.fromFile(it).toString()
                     }
+                    resolvedArtCache[rawUri] = resolved ?: ""
+                    resolved
                 }
             }
         }
