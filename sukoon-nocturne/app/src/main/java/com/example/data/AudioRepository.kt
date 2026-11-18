@@ -50,7 +50,7 @@ class AudioRepository(private val context: Context) {
             contentUri: String,
             filePath: String
         ): File? {
-            val artCacheDir = File(context.cacheDir, "track_art_v2").apply { mkdirs() }
+            val artCacheDir = File(context.filesDir, "track_art_v2").apply { mkdirs() }
             val cachedArt = File(artCacheDir, "track_${trackId}.jpg")
             val noArtMarker = File(artCacheDir, "track_${trackId}.none")
 
@@ -80,12 +80,27 @@ class AudioRepository(private val context: Context) {
                     }
                 }
                 if (cachedArt.exists() && cachedArt.length() > 0L) {
+                    saveCoverToTrackFolder(filePath, cachedArt)
                     return cachedArt
                 }
             }
 
             runCatching { noArtMarker.createNewFile() }
             return null
+        }
+
+        private fun saveCoverToTrackFolder(filePath: String, artFile: File) {
+            if (filePath.isBlank()) return
+            runCatching {
+                val parent = File(filePath).parentFile ?: return@runCatching
+                if (parent.exists() && parent.canWrite()) {
+                    val destCover = File(parent, "cover.jpg")
+                    if (!destCover.exists() || destCover.length() == 0L) {
+                        artFile.copyTo(destCover, overwrite = false)
+                    }
+                }
+            }
+        }
         }
     }
 
@@ -123,7 +138,7 @@ class AudioRepository(private val context: Context) {
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 OR ${MediaStore.Audio.Media.MIME_TYPE} LIKE 'audio/%'"
         val sortOrder = "${MediaStore.Audio.Media.DATE_ADDED} DESC"
 
-        val artCacheDir = File(context.cacheDir, "track_art_v2").apply { mkdirs() }
+        val artCacheDir = File(context.filesDir, "track_art_v2").apply { mkdirs() }
 
         context.contentResolver.query(collection, projection, selection, null, sortOrder)?.use { cursor ->
             val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
@@ -243,7 +258,7 @@ class AudioRepository(private val context: Context) {
             val content = file.readText()
             val array = JSONArray(content)
             val list = ArrayList<Track>(array.length())
-            val artCacheDir = File(context.cacheDir, "track_art_v2")
+            val artCacheDir = File(context.filesDir, "track_art_v2")
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
                 val rawTitle = obj.getString("title")
@@ -340,7 +355,7 @@ class AudioRepository(private val context: Context) {
         )
 
         if ((artFile == null || !artFile.exists()) && track.title.isNotBlank()) {
-            val artCacheDir = File(context.cacheDir, "track_art_v2").apply { mkdirs() }
+            val artCacheDir = File(context.filesDir, "track_art_v2").apply { mkdirs() }
             val cachedArt = File(artCacheDir, "track_${track.id}.jpg")
             val fetched = OnlineMetadataResolver.resolveTrackArtOnline(
                 context = context,
@@ -388,6 +403,7 @@ class AudioRepository(private val context: Context) {
         class Bucket(var weight: Float = 0f, var r: Float = 0f, var g: Float = 0f, var b: Float = 0f)
         val buckets = Array(24) { Bucket() }
         var neutralWeight = 0f
+        var whiteWeight = 0f
         var totalColorWeight = 0f
 
         val half = size / 2f
@@ -407,7 +423,15 @@ class AudioRepository(private val context: Context) {
                 val chroma = maxC - minC
                 val (h, s, l) = rgbToHsl(r, g, b)
 
-                if (l < 0.02f || l > 0.98f) continue
+                if (l >= 0.70f && s <= 0.25f) {
+                    whiteWeight += centerWeight
+                    neutralWeight += centerWeight
+                    continue
+                }
+                if (l < 0.02f || l > 0.98f) {
+                    neutralWeight += centerWeight
+                    continue
+                }
                 val isDarkVibrant = l in 0.025f..0.30f && chroma >= 10
                 if ((chroma < 14 || s < 0.10f) && !isDarkVibrant) {
                     neutralWeight += centerWeight
@@ -425,9 +449,15 @@ class AudioRepository(private val context: Context) {
             }
         }
 
+        // If artwork is predominantly white or very light neutral, return pristine crisp white and silver
+        val totalPixelArea = size * size.toFloat()
+        if (whiteWeight > totalPixelArea * 0.30f && whiteWeight > totalColorWeight * 1.1f) {
+            return Triple(0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0xFFCBD5E1.toInt())
+        }
+
         // B&W or neutral covers: return pure silver-white and dark charcoal instead of blue fallback
-        if (totalColorWeight <= 0.01f || totalColorWeight < neutralWeight * 0.04f) {
-            return Triple(0xFFF1F5F9.toInt(), 0xFFFFFFFF.toInt(), 0xFF1C1C22.toInt())
+        if (totalColorWeight <= 0.01f || totalColorWeight < neutralWeight * 0.05f) {
+            return Triple(0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0xFFCBD5E1.toInt())
         }
 
         // Find dominant 3-bucket neighborhood so adjacent hues reinforce each other
@@ -471,8 +501,8 @@ class AudioRepository(private val context: Context) {
 
         val (domR, domG, domB) = clusterRgb(bestIdx)
         val (topH, topS, topL) = rgbToHsl(domR, domG, domB)
-        val accentSat = (topS * 1.08f).coerceIn(0.32f, 0.86f)
-        val accentLight = topL.coerceIn(0.56f, 0.70f)
+        val accentSat = if (topL >= 0.72f && topS <= 0.25f) 0.05f else (topS * 1.08f).coerceIn(0.20f, 0.86f)
+        val accentLight = if (topL >= 0.72f && topS <= 0.25f) 0.95f else topL.coerceIn(0.52f, 0.72f)
         val accent = hslToColor(topH, accentSat, accentLight)
         val glow = hslToColor(topH, accentSat, topL.coerceIn(0.36f, 0.50f))
 

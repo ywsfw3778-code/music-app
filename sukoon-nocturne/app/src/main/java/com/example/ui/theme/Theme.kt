@@ -1,7 +1,6 @@
 package com.example.ui.theme
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
@@ -115,7 +114,41 @@ fun Modifier.waterGlassBackground(state: WaterGlassState): Modifier = this
         }
     }
 
-fun Modifier.waterGlassContent(state: WaterGlassState?): Modifier = this
+fun Modifier.waterGlassContent(state: WaterGlassState?): Modifier = if (state == null) {
+    this
+} else {
+    this.composed {
+        DisposableEffect(state) {
+            onDispose {
+                state.hasContent = false
+            }
+        }
+        Modifier.drawWithContent {
+            if (!state.blurEnabled) {
+                drawContent()
+                if (state.hasContent) state.hasContent = false
+                return@drawWithContent
+            }
+            state.isRecordingContent = true
+            try {
+                state.contentLayer.record {
+                    this@drawWithContent.drawContent()
+                }
+            } finally {
+                state.isRecordingContent = false
+            }
+            drawLayer(state.contentLayer)
+
+            state.blurredAllLayer.record {
+                drawLayer(state.bgLayer)
+                drawLayer(state.contentLayer)
+            }
+            if (!state.hasContent) {
+                state.hasContent = true
+            }
+        }
+    }
+}
 
 private class OffsetHolder {
     var offset by mutableStateOf(Offset.Zero)
@@ -126,7 +159,8 @@ private fun DrawScope.drawPositionedGlassLayer(
     itemOffset: Offset,
     bgOnly: Boolean
 ) {
-    val targetLayer = glass.blurredBgLayer
+    val useStaticBgOnly = !glass.blurEnabled || bgOnly || glass.isRecordingContent || !glass.hasContent
+    val targetLayer = if (useStaticBgOnly) glass.blurredBgLayer else glass.blurredAllLayer
     val dx = -(itemOffset.x - glass.rootOffset.x)
     val dy = -(itemOffset.y - glass.rootOffset.y)
     clipRect {
@@ -139,7 +173,7 @@ private fun DrawScope.drawPositionedGlassLayer(
 private fun Modifier.pureWaterGlass(
     shape: Shape,
     waterSheen: Color = Color(0x04FFFFFF),
-    bgOnly: Boolean = true
+    bgOnly: Boolean = false
 ): Modifier = composed {
     val glass = LocalWaterGlassState.current
     val itemOffset = remember { OffsetHolder() }
@@ -155,7 +189,7 @@ private fun Modifier.pureWaterGlass(
     if (glass != null) {
         base.drawBehind {
             drawPositionedGlassLayer(glass, itemOffset.offset, bgOnly)
-            if (!glass.blurEnabled) {
+            if (!bgOnly && !glass.blurEnabled) {
                 drawRect(Color(0x55080A10))
             }
             if (waterSheen != Color.Transparent) {
@@ -167,34 +201,51 @@ private fun Modifier.pureWaterGlass(
     }
 }
 
-fun Modifier.openTopGlassFade(): Modifier = this.drawBehind {
-    drawRect(
-        Brush.verticalGradient(
-            0.0f to Color(0xF207080C),
-            0.55f to Color(0xD007080C),
-            0.80f to Color(0x7007080C),
-            1.0f to Color.Transparent
-        )
-    )
+fun Modifier.openTopGlassFade(): Modifier = composed {
+    val glass = LocalWaterGlassState.current
+    val itemOffset = remember { OffsetHolder() }
+    this
+        .onGloballyPositioned { coords ->
+            val pos = coords.positionInWindow()
+            if (itemOffset.offset != pos) {
+                itemOffset.offset = pos
+            }
+        }
+        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+        .drawBehind {
+            if (glass != null) {
+                drawPositionedGlassLayer(glass, itemOffset.offset, bgOnly = false)
+            }
+            // Gentle translucent tint matching the rest of the app so album ambient colors show through vibrantly
+            val topAlpha = if (glass?.blurEnabled == false) 0.45f else 0.28f
+            val midAlpha = if (glass?.blurEnabled == false) 0.35f else 0.18f
+            drawRect(
+                Brush.verticalGradient(
+                    0.0f to Color.Black.copy(alpha = topAlpha),
+                    0.72f to Color.Black.copy(alpha = midAlpha),
+                    1.0f to Color.Transparent
+                )
+            )
+            drawRect(
+                brush = Brush.verticalGradient(
+                    0.0f to Color.Black,
+                    0.72f to Color.Black,
+                    0.92f to Color.Black.copy(alpha = 0.40f),
+                    1.0f to Color.Transparent
+                ),
+                blendMode = BlendMode.DstIn
+            )
+        }
 }
 
-fun Modifier.matteCard(
-    shape: Shape = RoundedCornerShape(18.dp),
-    backgroundColor: Color = Color(0x0CFFFFFF),
-    borderColor: Color = Color(0x14FFFFFF)
-): Modifier = this
-    .clip(shape)
-    .background(backgroundColor)
-    .border(1.dp, borderColor, shape)
+fun Modifier.matteCard(shape: Shape = RoundedCornerShape(18.dp)): Modifier =
+    pureWaterGlass(shape = shape, waterSheen = Color(0x03FFFFFF), bgOnly = true)
 
-fun Modifier.waterDropBar(shape: Shape = RoundedCornerShape(26.dp), bgOnly: Boolean = true): Modifier =
+fun Modifier.waterDropBar(shape: Shape = RoundedCornerShape(26.dp), bgOnly: Boolean = false): Modifier =
     pureWaterGlass(shape = shape, waterSheen = Color(0x04FFFFFF), bgOnly = bgOnly)
 
 fun Modifier.frostedFloatingBar(shape: Shape = RoundedCornerShape(26.dp)): Modifier =
-    pureWaterGlass(shape = shape, waterSheen = Color(0x04FFFFFF), bgOnly = true)
+    pureWaterGlass(shape = shape, waterSheen = Color(0x04FFFFFF), bgOnly = false)
 
 fun Modifier.matteElevated(shape: Shape = RoundedCornerShape(24.dp)): Modifier =
-    this
-        .clip(shape)
-        .background(Color(0x12FFFFFF))
-        .border(1.dp, Color(0x1AFFFFFF), shape)
+    pureWaterGlass(shape = shape, waterSheen = Color(0x08FFFFFF), bgOnly = true)

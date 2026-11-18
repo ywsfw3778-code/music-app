@@ -32,7 +32,7 @@ object OnlineMetadataResolver {
         val cacheKey = "$cleanAlbum:::$cleanArtist".lowercase()
         albumArtCache[cacheKey]?.let { return@withContext it }
 
-        val artCacheDir = File(context.cacheDir, "track_art_v2").apply { mkdirs() }
+        val artCacheDir = File(context.filesDir, "track_art_v2").apply { mkdirs() }
         val safeKey = "${cleanArtist}_${cleanAlbum}".replace(Regex("[^a-zA-Z0-9_\\-\\u0600-\\u06FF]"), "_")
         val targetFile = File(artCacheDir, "album_${safeKey}.jpg")
         val noArtMarker = File(artCacheDir, "album_${safeKey}.none")
@@ -74,7 +74,8 @@ object OnlineMetadataResolver {
                     val data = json.optJSONArray("data") ?: return@use null
                     if (data.length() == 0) return@use null
                     val first = data.getJSONObject(0)
-                    first.optString("cover_big").takeIf { it.isNotBlank() }
+                    first.optString("cover_xl").takeIf { it.isNotBlank() }
+                        ?: first.optString("cover_big").takeIf { it.isNotBlank() }
                         ?: first.optString("cover_medium").takeIf { it.isNotBlank() }
                 }
             }.getOrNull()
@@ -97,7 +98,8 @@ object OnlineMetadataResolver {
                     if (data.length() == 0) return@use null
                     val first = data.getJSONObject(0)
                     val albObj = first.optJSONObject("album")
-                    albObj?.optString("cover_big")?.takeIf { it.isNotBlank() }
+                    albObj?.optString("cover_xl")?.takeIf { it.isNotBlank() }
+                        ?: albObj?.optString("cover_big")?.takeIf { it.isNotBlank() }
                         ?: albObj?.optString("cover_medium")?.takeIf { it.isNotBlank() }
                 }
             }.getOrNull()
@@ -125,7 +127,7 @@ object OnlineMetadataResolver {
                         val first = results.getJSONObject(0)
                         val rawArt = first.optString("artworkUrl100")
                         if (rawArt.isNotBlank()) {
-                            rawArt.replace("100x100bb", "600x600bb")
+                            rawArt.replace("100x100bb", "1000x1000bb")
                         } else null
                     }
                 }.getOrNull()
@@ -187,7 +189,8 @@ object OnlineMetadataResolver {
                     if (data.length() == 0) return@use null
                     val first = data.getJSONObject(0)
                     val album = first.optJSONObject("album")
-                    album?.optString("cover_big")?.takeIf { it.isNotBlank() }
+                    album?.optString("cover_xl")?.takeIf { it.isNotBlank() }
+                        ?: album?.optString("cover_big")?.takeIf { it.isNotBlank() }
                         ?: album?.optString("cover_medium")?.takeIf { it.isNotBlank() }
                 }
             }.getOrNull()
@@ -210,7 +213,7 @@ object OnlineMetadataResolver {
                         val first = results.getJSONObject(0)
                         val rawArt = first.optString("artworkUrl100")
                         if (rawArt.isNotBlank()) {
-                            rawArt.replace("100x100bb", "600x600bb")
+                            rawArt.replace("100x100bb", "1000x1000bb")
                         } else null
                     }
                 }.getOrNull()
@@ -231,7 +234,7 @@ object OnlineMetadataResolver {
         val canonical = ArtistNormalizer.normalizeArtist(artistName)
         artistPhotoCache[canonical]?.let { return@withContext it }
 
-        val artistDir = File(context.cacheDir, "artist_art").apply { mkdirs() }
+        val artistDir = File(context.filesDir, "artist_art").apply { mkdirs() }
         val safeName = canonical.replace(Regex("[^a-zA-Z0-9_\\-\\u0600-\\u06FF]"), "_")
         val cachedFile = File(artistDir, "artist_${safeName}.jpg")
         val noArtMarker = File(artistDir, "artist_${safeName}.none")
@@ -273,7 +276,8 @@ object OnlineMetadataResolver {
                     val data = json.optJSONArray("data") ?: return@use null
                     if (data.length() == 0) return@use null
                     val first = data.getJSONObject(0)
-                    first.optString("picture_big").takeIf { it.isNotBlank() }
+                    first.optString("picture_xl").takeIf { it.isNotBlank() }
+                        ?: first.optString("picture_big").takeIf { it.isNotBlank() }
                         ?: first.optString("picture_medium").takeIf { it.isNotBlank() }
                 }
             }.getOrNull()

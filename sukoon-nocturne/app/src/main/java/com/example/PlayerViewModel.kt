@@ -171,7 +171,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 return@mapNotNull null
             }
             val safeKey = "${normArtist}_${first.album.trim()}".replace(Regex("[^a-zA-Z0-9_\\-\\u0600-\\u06FF]"), "_")
-            val diskAlbumArt = File(getApplication<Application>().cacheDir, "track_art_v2/album_${safeKey}.jpg")
+            val diskAlbumArt = File(getApplication<Application>().filesDir, "track_art_v2/album_${safeKey}.jpg")
             val diskArtUri = if (diskAlbumArt.exists() && diskAlbumArt.length() > 0L) Uri.fromFile(diskAlbumArt).toString() else null
 
             val artUri = diskArtUri
@@ -323,7 +323,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch(Dispatchers.IO) {
             delay(1200)
             val ctx = getApplication<Application>()
-            val artCacheDir = File(ctx.cacheDir, "track_art_v2").apply { mkdirs() }
+            val artCacheDir = File(ctx.filesDir, "track_art_v2").apply { mkdirs() }
 
             val currentTracks = _allScannedTracks.value
             val updated = currentTracks.toMutableList()
