@@ -1,22 +1,50 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Sukoon Nocturne — تطبيق أندرويد (Kotlin + Compose)
 
-# Run and deploy your AI Studio app
+هذا مجلد التطبيق الحقيقي. مشغل موسيقى محلي بواجهة AMOLED، يقرأ ملفات الجهاز، يجيب الأغلفة والميتاداتا من Deezer/iTunes، والكلمات المتزامنة من lrclib.
 
-This contains everything you need to run your app locally.
+## التشغيل
 
-View your app in AI Studio: https://ai.studio/apps/eaadfca2-5363-48b7-94ef-1a1bd2da141e
+```powershell
+# من داخل هذا المجلد
+& "$env:USERPROFILE\.gradle\wrapper\dists\gradle-9.3.1-all\9ot9r568e8zfvvd4mn8rbu1j0\gradle-9.3.1\bin\gradle.bat" assembleDebug
 
-## Run Locally
+# التثبيت على الجوال
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r app\build\outputs\apk\debug\app-debug.apk
+```
 
-**Prerequisites:**  [Android Studio](https://developer.android.com/studio)
+أو افتح المجلد في Android Studio واضغط ▶.
 
+## الاختبارات
 
-1. Open Android Studio
-2. Select **Open** and choose the directory containing this project
-3. Allow Android Studio to fix any incompatibilities as it imports the project.
-4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
-5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
-6. Run the app on an emulator or physical device
-7. If you have already published your app in AI Studio, please [request upload key reset](https://support.google.com/googleplay/android-developer/answer/9842756#zippy=%2Crequest-an-upload-key-reset) in Google Play Console.
+```powershell
+& "...\gradle-9.3.1\bin\gradle.bat" testDebugUnitTest
+```
+
+## خريطة الكود
+
+| المسار | الوظيفة |
+| --- | --- |
+| `MainActivity.kt` | نقطة الدخول والتنقّل بين الشاشات |
+| `PlayerViewModel.kt` | حالة التشغيل + المكتبة + الترشيحات |
+| `PlaybackService.kt` | خدمة MediaSession للتحكم من الإشعارات |
+| `data/AudioRepository.kt` | مسح ملفات الصوت من MediaStore والأغلفة |
+| `data/ArtistNormalizer.kt` | توحيد أسماء الفنانين وتنظيف العناوين |
+| `data/OnlineMetadataResolver.kt` | الأغلفة/الميتاداتا من Deezer وiTunes |
+| `data/LyricsRepository.kt` | الكلمات المتزامنة من lrclib |
+| `data/SettingsStore.kt` | حفظ الإعدادات (DataStore) |
+| `model/` | الموديلات والنصوص عربي/إنجليزي |
+| `ui/screens/` | الشاشات (المكتبة، المشغل، الإعدادات...) |
+| `ui/components/` | مكوّنات مشتركة |
+| `ui/theme/` | الألوان والخطوط والثيم |
+
+## إعدادات البناء
+
+- `applicationId = com.hiby.music` — `minSdk 24` — `targetSdk 36`
+- AGP 9.1.1 / Gradle 9.3.1 / Kotlin 2.2.10
+- `local.properties` و`debug.keystore` و`.env` غير متتبعة في جيت (محلية فقط)
+- `debug.keystore` موجود في الجذر لتوقيع نسخ debug، لا تحذفه
+
+## ملاحظات
+
+- لا يوجد تحديث تلقائي ولا Git remote — التحديث يدوي ببناء APK وتثبيته.
+- ملفات قديمة/غير مستخدمة عُزلت في `../_archive/`.

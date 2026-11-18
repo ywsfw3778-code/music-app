@@ -101,7 +101,6 @@ class AudioRepository(private val context: Context) {
                 }
             }
         }
-        }
     }
 
     private val recordingRegex = Regex(
