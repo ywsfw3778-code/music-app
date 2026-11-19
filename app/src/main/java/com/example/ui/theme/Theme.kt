@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.GraphicsLayer
@@ -36,7 +37,11 @@ import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
+
+private const val GLASS_BLUR_SCALE = 0.25f
 
 @Stable
 class WaterGlassState(
@@ -50,6 +55,10 @@ class WaterGlassState(
     var isRecordingContent: Boolean = false
     var appliedBlurPx: Float = -1f
     var blurEnabled by mutableStateOf(true)
+    var bgBlurScaleX: Float = GLASS_BLUR_SCALE
+    var bgBlurScaleY: Float = GLASS_BLUR_SCALE
+    var allBlurScaleX: Float = GLASS_BLUR_SCALE
+    var allBlurScaleY: Float = GLASS_BLUR_SCALE
 }
 
 @Composable
@@ -108,16 +117,24 @@ fun Modifier.waterGlassBackground(state: WaterGlassState, active: Boolean = true
         }
         drawLayer(state.bgLayer)
 
-        if (state.blurEnabled) {
-            val targetBlurPx = 12.dp.toPx()
+        if (state.blurEnabled && size.width > 0f && size.height > 0f) {
+            val targetBlurPx = (12.dp.toPx() * GLASS_BLUR_SCALE).coerceAtLeast(1f)
             if (state.appliedBlurPx != targetBlurPx) {
                 val effect = BlurEffect(targetBlurPx, targetBlurPx, TileMode.Clamp)
                 state.blurredBgLayer.renderEffect = effect
                 state.blurredAllLayer.renderEffect = effect
                 state.appliedBlurPx = targetBlurPx
             }
-            state.blurredBgLayer.record {
-                drawLayer(state.bgLayer)
+            val scaledW = (size.width * GLASS_BLUR_SCALE).roundToInt().coerceAtLeast(1)
+            val scaledH = (size.height * GLASS_BLUR_SCALE).roundToInt().coerceAtLeast(1)
+            val sx = scaledW.toFloat() / size.width
+            val sy = scaledH.toFloat() / size.height
+            state.bgBlurScaleX = sx
+            state.bgBlurScaleY = sy
+            state.blurredBgLayer.record(size = IntSize(scaledW, scaledH)) {
+                scale(scaleX = sx, scaleY = sy, pivot = Offset.Zero) {
+                    drawLayer(state.bgLayer)
+                }
             }
         }
     }
@@ -132,7 +149,7 @@ fun Modifier.waterGlassContent(state: WaterGlassState?): Modifier = if (state ==
             }
         }
         Modifier.drawWithContent {
-            if (!state.blurEnabled) {
+            if (!state.blurEnabled || size.width <= 0f || size.height <= 0f) {
                 drawContent()
                 if (state.hasContent) state.hasContent = false
                 return@drawWithContent
@@ -147,13 +164,33 @@ fun Modifier.waterGlassContent(state: WaterGlassState?): Modifier = if (state ==
             }
             drawLayer(state.contentLayer)
 
-            state.blurredAllLayer.record {
-                drawLayer(state.bgLayer)
-                drawLayer(state.contentLayer)
+            val scaledW = (size.width * GLASS_BLUR_SCALE).roundToInt().coerceAtLeast(1)
+            val scaledH = (size.height * GLASS_BLUR_SCALE).roundToInt().coerceAtLeast(1)
+            val sx = scaledW.toFloat() / size.width
+            val sy = scaledH.toFloat() / size.height
+            state.allBlurScaleX = sx
+            state.allBlurScaleY = sy
+            state.blurredAllLayer.record(size = IntSize(scaledW, scaledH)) {
+                scale(scaleX = sx, scaleY = sy, pivot = Offset.Zero) {
+                    drawLayer(state.bgLayer)
+                    drawLayer(state.contentLayer)
+                }
             }
             if (!state.hasContent) {
                 state.hasContent = true
             }
+        }
+    }
+}
+
+fun DrawScope.drawFullScreenGlassBackground(glass: WaterGlassState) {
+    if (!glass.blurEnabled) {
+        drawLayer(glass.bgLayer)
+    } else {
+        val invX = if (glass.bgBlurScaleX > 0f) 1f / glass.bgBlurScaleX else 1f
+        val invY = if (glass.bgBlurScaleY > 0f) 1f / glass.bgBlurScaleY else 1f
+        scale(scaleX = invX, scaleY = invY, pivot = Offset.Zero) {
+            drawLayer(glass.blurredBgLayer)
         }
     }
 }
@@ -163,16 +200,27 @@ private fun DrawScope.drawPositionedGlassLayer(
     itemOffset: Offset,
     bgOnly: Boolean
 ) {
-    val targetLayer = when {
-        !glass.blurEnabled -> glass.bgLayer
-        bgOnly || glass.isRecordingContent || !glass.hasContent -> glass.blurredBgLayer
-        else -> glass.blurredAllLayer
-    }
     val dx = -(itemOffset.x - glass.rootOffset.x)
     val dy = -(itemOffset.y - glass.rootOffset.y)
+    if (!glass.blurEnabled) {
+        clipRect {
+            translate(left = dx, top = dy) {
+                drawLayer(glass.bgLayer)
+            }
+        }
+        return
+    }
+    val useBgOnly = bgOnly || glass.isRecordingContent || !glass.hasContent
+    val targetLayer = if (useBgOnly) glass.blurredBgLayer else glass.blurredAllLayer
+    val sx = if (useBgOnly) glass.bgBlurScaleX else glass.allBlurScaleX
+    val sy = if (useBgOnly) glass.bgBlurScaleY else glass.allBlurScaleY
+    val invX = if (sx > 0f) 1f / sx else 1f
+    val invY = if (sy > 0f) 1f / sy else 1f
     clipRect {
         translate(left = dx, top = dy) {
-            drawLayer(targetLayer)
+            scale(scaleX = invX, scaleY = invY, pivot = Offset.Zero) {
+                drawLayer(targetLayer)
+            }
         }
     }
 }

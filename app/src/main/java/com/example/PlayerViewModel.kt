@@ -252,6 +252,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var fadeOutPlayer: ExoPlayer? = null
     private var crossfadeTriggeredForTrackId: String? = null
     private var lastFetchedLyricsTrackId: String? = null
+    @Volatile
+    private var isFullPlayerVisible: Boolean = false
+
+    fun setFullPlayerVisible(visible: Boolean) {
+        isFullPlayerVisible = visible
+    }
 
     init {
         viewModelScope.launch {
@@ -269,6 +275,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun startArtistPhotoResolver() {
         viewModelScope.launch(Dispatchers.IO) {
+            delay(4500L)
             val attempted = HashSet<String>()
             artists.collect { list ->
                 val ctx = getApplication<Application>()
@@ -281,11 +288,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     if (!photoUri.isNullOrBlank()) {
                         map[a.name] = photoUri
                         pendingCount++
-                        if (pendingCount >= 5) {
+                        if (pendingCount >= 10) {
                             _artistPhotos.value = LinkedHashMap(map)
                             pendingCount = 0
                         }
                     }
+                    delay(80L)
                 }
                 if (pendingCount > 0) {
                     _artistPhotos.value = LinkedHashMap(map)
@@ -296,6 +304,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun startAlbumArtResolver() {
         viewModelScope.launch(Dispatchers.IO) {
+            delay(5000L)
             val ctx = getApplication<Application>()
             val attempted = HashSet<String>()
             activeTracks.collect { currentTracks ->
@@ -321,12 +330,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     if (!coverUri.isNullOrBlank()) {
                         map[groupKey] = coverUri
                         pendingCount++
-                        if (pendingCount >= 4) {
+                        if (pendingCount >= 8) {
                             _albumArt.value = LinkedHashMap(map)
                             pendingCount = 0
                         }
                     }
-                    delay(40)
+                    delay(90L)
                 }
                 if (pendingCount > 0) {
                     _albumArt.value = LinkedHashMap(map)
@@ -343,7 +352,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
             _allScannedTracks.collect { currentTracks ->
                 if (currentTracks.isEmpty()) return@collect
-                delay(900)
+                delay(3200L)
 
                 val latestTracks = _allScannedTracks.value
                 val updated = latestTracks.toMutableList()
@@ -374,6 +383,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     if (embeddedFile != null && embeddedFile.exists() && embeddedFile.length() > 0L) {
                         updated[i] = t.copy(artUri = Uri.fromFile(embeddedFile).toString())
                         hasChanges = true
+                        delay(20L)
                         continue
                     }
 
@@ -405,6 +415,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                             hasChanges = true
                         }
                     }
+                    delay(35L)
                 }
 
                 if (hasChanges) {
@@ -491,7 +502,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         if (ctrl.volume < 1f) ctrl.volume = 1f
                     }
                 }
-                delay(if (playing) 200L else 450L)
+                delay(
+                    when {
+                        !playing -> 600L
+                        isFullPlayerVisible || _isCrossfading.value -> 200L
+                        else -> 500L
+                    }
+                )
             }
         }
     }
@@ -655,7 +672,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 manualExcludedIds = manualExcludedIds.value,
                 manualRestoredIds = manualRestoredIds.value
             )
-            _allScannedTracks.value = scanned
+            val prev = _allScannedTracks.value
+            val unchanged = prev.size == scanned.size && prev.indices.all { i ->
+                prev[i].id == scanned[i].id && prev[i].artUri == scanned[i].artUri
+            }
+            if (!unchanged) {
+                _allScannedTracks.value = scanned
+            }
             _isScanning.value = false
         }
     }

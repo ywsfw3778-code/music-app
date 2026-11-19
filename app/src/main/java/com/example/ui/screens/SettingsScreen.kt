@@ -103,6 +103,7 @@ import com.example.ui.components.formatDuration
 import com.example.ui.theme.AppFontFamily
 import com.example.ui.theme.LocalWaterGlassState
 import com.example.ui.theme.NocturneColors
+import com.example.ui.theme.drawFullScreenGlassBackground
 import com.example.ui.theme.matteCard
 import com.example.ui.theme.waterGlassContent
 import kotlin.math.roundToInt
@@ -978,7 +979,7 @@ private fun ExcludedTracksPage(
             .fillMaxSize()
             .drawBehind {
                 if (glass != null) {
-                    drawLayer(if (glass.blurEnabled) glass.blurredBgLayer else glass.bgLayer)
+                    drawFullScreenGlassBackground(glass)
                     drawRect(Color.Black.copy(alpha = 0.45f))
                 } else {
                     drawRect(NocturneColors.Black)
@@ -1275,7 +1276,7 @@ private fun MusicFoldersPage(
             .fillMaxSize()
             .drawBehind {
                 if (glass != null) {
-                    drawLayer(if (glass.blurEnabled) glass.blurredBgLayer else glass.bgLayer)
+                    drawFullScreenGlassBackground(glass)
                     drawRect(Color.Black.copy(alpha = 0.45f))
                 } else {
                     drawRect(NocturneColors.Black)

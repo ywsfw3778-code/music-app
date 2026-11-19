@@ -108,6 +108,7 @@ import com.example.ui.components.formatDuration
 import com.example.ui.theme.AppFontFamily
 import com.example.ui.theme.LocalWaterGlassState
 import com.example.ui.theme.NocturneColors
+import com.example.ui.theme.drawFullScreenGlassBackground
 import com.example.ui.theme.matteCard
 import com.example.ui.theme.openTopGlassFade
 import com.example.ui.theme.waterDropBar
@@ -844,7 +845,7 @@ private fun PlaylistSongPickerOverlay(
             .fillMaxSize()
             .drawBehind {
                 if (glass != null) {
-                    drawLayer(if (glass.blurEnabled) glass.blurredBgLayer else glass.bgLayer)
+                    drawFullScreenGlassBackground(glass)
                 }
                 drawRect(Color.Black.copy(alpha = 0.48f))
             }
@@ -1064,7 +1065,7 @@ private fun PlaylistEditorOverlay(
             .fillMaxSize()
             .drawBehind {
                 if (glass != null) {
-                    drawLayer(if (glass.blurEnabled) glass.blurredBgLayer else glass.bgLayer)
+                    drawFullScreenGlassBackground(glass)
                 }
                 drawRect(Color.Black.copy(alpha = 0.50f))
             }

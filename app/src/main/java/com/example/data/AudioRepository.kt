@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap
 class AudioRepository(private val context: Context) {
 
     companion object {
-        private val artSemaphore = Semaphore(4)
+        private val artSemaphore = Semaphore(2)
         private val artMemoryCache = ConcurrentHashMap<String, Triple<String?, Int, Int>>()
         private val resolvedArtCache = ConcurrentHashMap<String, String>()
         private val notificationArtCache = LruCache<String, ByteArray>(12)
@@ -82,12 +82,14 @@ class AudioRepository(private val context: Context) {
 
             if (embeddedBytes != null && embeddedBytes.isNotEmpty()) {
                 runCatching {
-                    FileOutputStream(cachedArt).use { out ->
-                        out.write(embeddedBytes)
+                    val written = writeOptimizedArtBytes(embeddedBytes, cachedArt)
+                    if (!written) {
+                        FileOutputStream(cachedArt).use { out ->
+                            out.write(embeddedBytes)
+                        }
                     }
                 }
                 if (cachedArt.exists() && cachedArt.length() > 0L) {
-                    saveCoverToTrackFolder(filePath, cachedArt)
                     return cachedArt
                 }
             }
@@ -96,16 +98,38 @@ class AudioRepository(private val context: Context) {
             return null
         }
 
-        private fun saveCoverToTrackFolder(filePath: String, artFile: File) {
-            if (filePath.isBlank()) return
-            runCatching {
-                val parent = File(filePath).parentFile ?: return@runCatching
-                if (parent.exists() && parent.canWrite()) {
-                    val destCover = File(parent, "cover.jpg")
-                    if (!destCover.exists() || destCover.length() == 0L) {
-                        artFile.copyTo(destCover, overwrite = false)
+        private fun writeOptimizedArtBytes(bytes: ByteArray, destFile: File): Boolean {
+            if (bytes.size <= 200_000) return false
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            val maxDim = maxOf(bounds.outWidth, bounds.outHeight)
+            if (maxDim <= 0) return false
+            var sample = 1
+            while (maxDim / (sample * 2) >= 720) {
+                sample *= 2
+            }
+            val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+            val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts) ?: return false
+            return try {
+                val finalBmp = if (maxOf(bmp.width, bmp.height) > 720) {
+                    val ratio = 720f / maxOf(bmp.width, bmp.height).toFloat()
+                    Bitmap.createScaledBitmap(
+                        bmp,
+                        (bmp.width * ratio).toInt().coerceAtLeast(1),
+                        (bmp.height * ratio).toInt().coerceAtLeast(1),
+                        true
+                    )
+                } else bmp
+                try {
+                    FileOutputStream(destFile).use { out ->
+                        finalBmp.compress(Bitmap.CompressFormat.JPEG, 88, out)
                     }
+                    true
+                } finally {
+                    if (finalBmp !== bmp) finalBmp.recycle()
                 }
+            } finally {
+                bmp.recycle()
             }
         }
     }

@@ -82,7 +82,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
@@ -92,7 +91,6 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -106,13 +104,12 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.example.model.AppStrings
 import com.example.model.LrcSearchResult
 import com.example.model.LyricsData
 import com.example.model.RepeatMode
 import com.example.model.Track
+import com.example.ui.components.BlurredWallpaperImage
 import com.example.ui.components.TrackArtwork
 import com.example.ui.components.formatDuration
 import com.example.ui.components.formatMillis
@@ -205,26 +202,14 @@ fun FullPlayerSheet(
             } else null
             Crossfade(
                 targetState = bgUri,
-                animationSpec = tween(550, easing = FastOutSlowInEasing),
+                animationSpec = tween(380, easing = FastOutSlowInEasing),
                 label = "playerBgFade"
             ) { artUri ->
                 if (!artUri.isNullOrBlank()) {
-                    AsyncImage(
-                        model = remember(artUri) {
-                            ImageRequest.Builder(context)
-                                .data(artUri)
-                                .size(256)
-                                .memoryCacheKey("${artUri}_bg256")
-                                .diskCacheKey(artUri)
-                                .crossfade(false)
-                                .build()
-                        },
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
+                    BlurredWallpaperImage(
+                        artUri = artUri,
                         alpha = 0.55f,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .blur(26.dp)
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
             }

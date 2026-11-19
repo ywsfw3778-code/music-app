@@ -84,8 +84,19 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import android.util.LruCache
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import coil.Coil
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import coil.request.SuccessResult
 import com.example.data.AudioRepository
 import com.example.model.AppStrings
 import com.example.model.Playlist
@@ -94,8 +105,179 @@ import com.example.ui.theme.NocturneColors
 import com.example.ui.theme.frostedFloatingBar
 import com.example.ui.theme.glassSheetSurface
 import com.example.ui.theme.matteCard
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.withContext
+import java.io.File
 import kotlin.math.roundToInt
+
+private val TrackRowShape = RoundedCornerShape(16.dp)
+private val WallpaperBlurCache = LruCache<String, ImageBitmap>(8)
+
+private suspend fun loadPreBlurredWallpaper(context: Context, uri: String): ImageBitmap? {
+    WallpaperBlurCache.get(uri)?.let { return it }
+    return withContext(Dispatchers.IO) {
+        val rawBmp = decodeSmallBitmap(context, uri, 96) ?: return@withContext null
+        val blurred = try {
+            fastBoxBlur(rawBmp, radius = 6, passes = 2)
+        } finally {
+            rawBmp.recycle()
+        }
+        val imageBmp = blurred.asImageBitmap()
+        WallpaperBlurCache.put(uri, imageBmp)
+        imageBmp
+    }
+}
+
+private suspend fun decodeSmallBitmap(context: Context, uri: String, targetSize: Int): Bitmap? {
+    return runCatching {
+        when {
+            uri.startsWith("file://") -> {
+                val path = Uri.parse(uri).path ?: return@runCatching null
+                val file = File(path)
+                if (!file.exists()) return@runCatching null
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(path, bounds)
+                val maxDim = maxOf(bounds.outWidth, bounds.outHeight)
+                if (maxDim <= 0) return@runCatching null
+                var sample = 1
+                while (maxDim / (sample * 2) >= targetSize) sample *= 2
+                val opts = BitmapFactory.Options().apply {
+                    inSampleSize = sample
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                }
+                val decoded = BitmapFactory.decodeFile(path, opts) ?: return@runCatching null
+                scaleToSquare(decoded, targetSize)
+            }
+            uri.startsWith("content://") -> {
+                val parsed = Uri.parse(uri)
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                context.contentResolver.openInputStream(parsed)?.use {
+                    BitmapFactory.decodeStream(it, null, bounds)
+                }
+                val maxDim = maxOf(bounds.outWidth, bounds.outHeight)
+                if (maxDim <= 0) return@runCatching null
+                var sample = 1
+                while (maxDim / (sample * 2) >= targetSize) sample *= 2
+                val opts = BitmapFactory.Options().apply {
+                    inSampleSize = sample
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                }
+                val decoded = context.contentResolver.openInputStream(parsed)?.use {
+                    BitmapFactory.decodeStream(it, null, opts)
+                } ?: return@runCatching null
+                scaleToSquare(decoded, targetSize)
+            }
+            else -> {
+                val req = ImageRequest.Builder(context)
+                    .data(uri)
+                    .size(targetSize, targetSize)
+                    .allowHardware(false)
+                    .build()
+                val res = Coil.imageLoader(context).execute(req) as? SuccessResult ?: return@runCatching null
+                val dr = res.drawable
+                val bmp = Bitmap.createBitmap(targetSize, targetSize, Bitmap.Config.ARGB_8888)
+                val canvas = android.graphics.Canvas(bmp)
+                dr.setBounds(0, 0, targetSize, targetSize)
+                dr.draw(canvas)
+                bmp
+            }
+        }
+    }.getOrNull()
+}
+
+private fun scaleToSquare(src: Bitmap, target: Int): Bitmap {
+    if (src.width == target && src.height == target && src.config == Bitmap.Config.ARGB_8888) {
+        return src
+    }
+    val scaled = Bitmap.createScaledBitmap(src, target, target, true)
+    if (scaled !== src) src.recycle()
+    return if (scaled.config == Bitmap.Config.ARGB_8888) scaled else {
+        val copy = scaled.copy(Bitmap.Config.ARGB_8888, false)
+        scaled.recycle()
+        copy
+    }
+}
+
+private fun fastBoxBlur(src: Bitmap, radius: Int, passes: Int): Bitmap {
+    val w = src.width
+    val h = src.height
+    val pixels = IntArray(w * h)
+    val temp = IntArray(w * h)
+    src.getPixels(pixels, 0, w, 0, 0, w, h)
+    val div = radius * 2 + 1
+
+    repeat(passes) {
+        // Horizontal pass
+        for (y in 0 until h) {
+            val row = y * w
+            var rSum = 0
+            var gSum = 0
+            var bSum = 0
+            for (i in -radius..radius) {
+                val p = pixels[row + i.coerceIn(0, w - 1)]
+                rSum += (p ushr 16) and 0xFF
+                gSum += (p ushr 8) and 0xFF
+                bSum += p and 0xFF
+            }
+            for (x in 0 until w) {
+                temp[row + x] = (0xFF shl 24) or ((rSum / div) shl 16) or ((gSum / div) shl 8) or (bSum / div)
+                val outP = pixels[row + (x - radius).coerceIn(0, w - 1)]
+                val inP = pixels[row + (x + radius + 1).coerceIn(0, w - 1)]
+                rSum += ((inP ushr 16) and 0xFF) - ((outP ushr 16) and 0xFF)
+                gSum += ((inP ushr 8) and 0xFF) - ((outP ushr 8) and 0xFF)
+                bSum += (inP and 0xFF) - (outP and 0xFF)
+            }
+        }
+        // Vertical pass
+        for (x in 0 until w) {
+            var rSum = 0
+            var gSum = 0
+            var bSum = 0
+            for (i in -radius..radius) {
+                val p = temp[i.coerceIn(0, h - 1) * w + x]
+                rSum += (p ushr 16) and 0xFF
+                gSum += (p ushr 8) and 0xFF
+                bSum += p and 0xFF
+            }
+            for (y in 0 until h) {
+                pixels[y * w + x] = (0xFF shl 24) or ((rSum / div) shl 16) or ((gSum / div) shl 8) or (bSum / div)
+                val outP = temp[(y - radius).coerceIn(0, h - 1) * w + x]
+                val inP = temp[(y + radius + 1).coerceIn(0, h - 1) * w + x]
+                rSum += ((inP ushr 16) and 0xFF) - ((outP ushr 16) and 0xFF)
+                gSum += ((inP ushr 8) and 0xFF) - ((outP ushr 8) and 0xFF)
+                bSum += (inP and 0xFF) - (outP and 0xFF)
+            }
+        }
+    }
+    return Bitmap.createBitmap(pixels, w, h, Bitmap.Config.ARGB_8888)
+}
+
+@Composable
+fun BlurredWallpaperImage(
+    artUri: String?,
+    alpha: Float,
+    modifier: Modifier = Modifier
+) {
+    if (artUri.isNullOrBlank()) return
+    val context = LocalContext.current
+    val cached = remember(artUri) { WallpaperBlurCache.get(artUri) }
+    val bitmap by produceState<ImageBitmap?>(initialValue = cached, key1 = artUri) {
+        if (value == null) {
+            value = loadPreBlurredWallpaper(context, artUri)
+        }
+    }
+    bitmap?.let { bmp ->
+        Image(
+            bitmap = bmp,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            filterQuality = FilterQuality.Medium,
+            alpha = alpha,
+            modifier = modifier
+        )
+    }
+}
 
 @Composable
 fun TrackArtwork(
@@ -115,55 +297,53 @@ fun TrackArtwork(
         }
     }
     val shape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
-    val bgBrush = remember(accentColor) {
-        Brush.linearGradient(
-            listOf(
-                accentColor.copy(alpha = 0.22f),
-                Color(0xFF14141C)
-            )
-        )
-    }
-    val artResolution by produceState<Pair<String?, Boolean>>(
-        initialValue = if (!artUri.isNullOrBlank() && !artUri.startsWith("track_art://")) {
-            artUri to true
-        } else {
-            null to artUri.isNullOrBlank()
-        },
-        key1 = artUri
-    ) {
-        value = if (artUri.isNullOrBlank()) {
-            null to true
-        } else if (!artUri.startsWith("track_art://")) {
-            artUri to true
-        } else {
-            AudioRepository.resolveArtUri(context, artUri) to true
+    val needsResolve = !artUri.isNullOrBlank() && artUri.startsWith("track_art://")
+    val displayUri = if (!needsResolve) {
+        artUri?.takeIf { it.isNotBlank() } ?: fallbackArtUri
+    } else {
+        val resolved by produceState<Pair<String?, Boolean>>(
+            initialValue = null to false,
+            key1 = artUri
+        ) {
+            value = AudioRepository.resolveArtUri(context, artUri) to true
         }
+        resolved.first ?: if (resolved.second) fallbackArtUri else null
     }
-    val displayUri = artResolution.first ?: if (artResolution.second) fallbackArtUri else null
 
-    Box(
-        modifier = modifier
-            .size(size)
-            .clip(shape)
-            .background(bgBrush),
-        contentAlignment = Alignment.Center
-    ) {
-        if (!displayUri.isNullOrBlank()) {
-            AsyncImage(
-                model = remember(displayUri, targetPx) {
-                    ImageRequest.Builder(context)
-                        .data(displayUri)
-                        .size(targetPx, targetPx)
-                        .memoryCacheKey("${displayUri}_$targetPx")
-                        .diskCacheKey(displayUri)
-                        .crossfade(false)
-                        .build()
-                },
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+    if (!displayUri.isNullOrBlank()) {
+        AsyncImage(
+            model = remember(displayUri, targetPx) {
+                ImageRequest.Builder(context)
+                    .data(displayUri)
+                    .size(targetPx, targetPx)
+                    .memoryCacheKey("${displayUri}_$targetPx")
+                    .diskCacheKey(displayUri)
+                    .crossfade(false)
+                    .build()
+            },
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = modifier
+                .size(size)
+                .clip(shape)
+                .background(Color(0xFF14141C))
+        )
+    } else {
+        val bgBrush = remember(accentColor) {
+            Brush.linearGradient(
+                listOf(
+                    accentColor.copy(alpha = 0.22f),
+                    Color(0xFF14141C)
+                )
             )
-        } else {
+        }
+        Box(
+            modifier = modifier
+                .size(size)
+                .clip(shape)
+                .background(bgBrush),
+            contentAlignment = Alignment.Center
+        ) {
             Icon(
                 imageVector = Icons.Rounded.MusicNote,
                 contentDescription = null,
@@ -192,7 +372,7 @@ fun TrackRowItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(TrackRowShape)
             .background(rowBg)
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 9.dp),

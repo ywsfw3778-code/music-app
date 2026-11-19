@@ -60,12 +60,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
@@ -74,13 +72,12 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.example.model.AppStrings
 import com.example.model.ArtworkBgMode
 import com.example.model.MainTab
 import com.example.model.StringsProvider
 import com.example.model.Track
+import com.example.ui.components.BlurredWallpaperImage
 import com.example.ui.components.MiniPlayerBar
 import com.example.ui.components.PlaylistPickerDialog
 import com.example.ui.components.TrackDetailsDialog
@@ -123,12 +120,12 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
 
     val accentColor by animateColorAsState(
         targetValue = Color(accentInt),
-        animationSpec = tween(420, easing = FastOutSlowInEasing),
+        animationSpec = tween(220, easing = FastOutSlowInEasing),
         label = "accentColor"
     )
     val secondaryColor by animateColorAsState(
         targetValue = Color(secondaryInt),
-        animationSpec = tween(420, easing = FastOutSlowInEasing),
+        animationSpec = tween(220, easing = FastOutSlowInEasing),
         label = "secondaryColor"
     )
 
@@ -193,6 +190,7 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
     val waterGlassState = rememberWaterGlassState(blurEnabled = settings.glassBlurEnabled)
 
     LaunchedEffect(currentTab, showFullPlayer) {
+        viewModel.setFullPlayerVisible(showFullPlayer)
         if (currentTab == MainTab.SETTINGS || showFullPlayer) {
             waterGlassState.hasContent = false
         }
@@ -217,26 +215,14 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                     val effectiveBgUri = if (settings.artworkBgMode != ArtworkBgMode.OFF) bgArtUriState else null
                     Crossfade(
                         targetState = effectiveBgUri,
-                        animationSpec = tween(550, easing = FastOutSlowInEasing),
+                        animationSpec = tween(380, easing = FastOutSlowInEasing),
                         label = "mainBgFade"
                     ) { artUri ->
                         if (!artUri.isNullOrBlank()) {
-                            AsyncImage(
-                                model = remember(artUri) {
-                                    ImageRequest.Builder(context)
-                                        .data(artUri)
-                                        .size(256)
-                                        .memoryCacheKey("${artUri}_bg256")
-                                        .diskCacheKey(artUri)
-                                        .crossfade(false)
-                                        .build()
-                                },
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
+                            BlurredWallpaperImage(
+                                artUri = artUri,
                                 alpha = if (settings.artworkBgMode == ArtworkBgMode.FULL) 0.55f else 0.45f,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .blur(26.dp)
+                                modifier = Modifier.fillMaxSize()
                             )
                         }
                     }
