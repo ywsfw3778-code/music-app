@@ -86,12 +86,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import coil.size.Precision
 import com.example.data.AudioRepository
 import com.example.model.AppStrings
 import com.example.model.Playlist
 import com.example.model.Track
-import com.example.ui.theme.LocalWaterGlassState
 import com.example.ui.theme.NocturneColors
 import com.example.ui.theme.frostedFloatingBar
 import com.example.ui.theme.glassSheetSurface
@@ -109,10 +107,12 @@ fun TrackArtwork(
     fallbackArtUri: String? = null
 ) {
     val context = LocalContext.current
-    val density = LocalDensity.current
-    val targetPx = remember(size, density) {
-        val rawPx = with(density) { size.roundToPx() }
-        (rawPx * 1.25f).toInt().coerceIn(256, 1080)
+    val targetPx = remember(size) {
+        when {
+            size >= 200.dp -> 720
+            size >= 100.dp -> 384
+            else -> 192
+        }
     }
     val shape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
     val bgBrush = remember(accentColor) {
@@ -154,7 +154,6 @@ fun TrackArtwork(
                     ImageRequest.Builder(context)
                         .data(displayUri)
                         .size(targetPx, targetPx)
-                        .precision(Precision.INEXACT)
                         .memoryCacheKey("${displayUri}_$targetPx")
                         .diskCacheKey(displayUri)
                         .crossfade(false)
@@ -595,10 +594,9 @@ fun TrackDetailsDialog(
     accentColor: Color,
     onDismiss: () -> Unit
 ) {
-    val surfaceBg = LocalWaterGlassState.current?.solidSurfaceColor() ?: NocturneColors.MatteElevatedBg
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = surfaceBg,
+        containerColor = NocturneColors.MatteElevatedBg,
         title = { Text(strings.trackDetails, color = Color.White, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -625,10 +623,9 @@ fun PlaylistPickerDialog(
     onSelectPlaylist: (String, String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val surfaceBg = LocalWaterGlassState.current?.solidSurfaceColor() ?: NocturneColors.MatteElevatedBg
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = surfaceBg,
+        containerColor = NocturneColors.MatteElevatedBg,
         title = { Text(strings.addToPlaylist, color = Color.White, fontWeight = FontWeight.Bold) },
         text = {
             if (playlists.isEmpty()) {

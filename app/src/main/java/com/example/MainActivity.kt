@@ -190,11 +190,7 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
     }
 
     val layoutDir = LayoutDirection.Rtl
-    val waterGlassState = rememberWaterGlassState(
-        blurEnabled = settings.glassBlurEnabled,
-        accentColor = accentColor,
-        secondaryColor = secondaryColor
-    )
+    val waterGlassState = rememberWaterGlassState(blurEnabled = settings.glassBlurEnabled)
 
     LaunchedEffect(currentTab, showFullPlayer) {
         if (currentTab == MainTab.SETTINGS || showFullPlayer) {
@@ -442,12 +438,8 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                 }
                 AnimatedVisibility(
                     visible = menuTrack != null,
-                    enter = fadeIn(tween(180)) + slideInVertically(
-                        animationSpec = tween(240, easing = FastOutSlowInEasing)
-                    ) { it / 4 },
-                    exit = fadeOut(tween(150)) + slideOutVertically(
-                        animationSpec = tween(180, easing = FastOutSlowInEasing)
-                    ) { it / 4 }
+                    enter = fadeIn(tween(180)),
+                    exit = fadeOut(tween(150))
                 ) {
                     lastMenuTrack?.let { t ->
                         val favoriteIds by viewModel.favoriteIds.collectAsState()

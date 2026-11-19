@@ -183,11 +183,7 @@ fun FullPlayerSheet(
         }
     }
 
-    val playerGlassState = rememberWaterGlassState(
-        blurEnabled = glassBlurEnabled,
-        accentColor = accentColor,
-        secondaryColor = secondaryColor
-    )
+    val playerGlassState = rememberWaterGlassState(blurEnabled = glassBlurEnabled)
 
     Box(
         modifier = Modifier

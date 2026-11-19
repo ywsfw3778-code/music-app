@@ -73,9 +73,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -688,7 +690,7 @@ fun SettingsScreen(
         if (showClearDialog) {
             AlertDialog(
                 onDismissRequest = { showClearDialog = false },
-                containerColor = waterGlass?.solidSurfaceColor() ?: NocturneColors.MatteElevatedBg,
+                containerColor = NocturneColors.MatteElevatedBg,
                 title = { Text(strings.clearLibrary, color = Color.White, fontWeight = FontWeight.Bold) },
                 text = { Text(strings.clearLibraryConfirm, color = NocturneColors.TextSecondary) },
                 confirmButton = {
@@ -974,10 +976,14 @@ private fun ExcludedTracksPage(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .then(
-                if (glass != null) Modifier.background(glass.satinSurfaceBrush())
-                else Modifier.background(NocturneColors.Black)
-            )
+            .drawBehind {
+                if (glass != null) {
+                    drawLayer(if (glass.blurEnabled) glass.blurredBgLayer else glass.bgLayer)
+                    drawRect(Color.Black.copy(alpha = 0.45f))
+                } else {
+                    drawRect(NocturneColors.Black)
+                }
+            }
     ) {
         Column(
             modifier = Modifier
@@ -1267,10 +1273,14 @@ private fun MusicFoldersPage(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .then(
-                if (glass != null) Modifier.background(glass.satinSurfaceBrush())
-                else Modifier.background(NocturneColors.Black)
-            )
+            .drawBehind {
+                if (glass != null) {
+                    drawLayer(if (glass.blurEnabled) glass.blurredBgLayer else glass.bgLayer)
+                    drawRect(Color.Black.copy(alpha = 0.45f))
+                } else {
+                    drawRect(NocturneColors.Black)
+                }
+            }
     ) {
         Column(
             modifier = Modifier

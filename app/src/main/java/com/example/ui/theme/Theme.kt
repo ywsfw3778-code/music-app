@@ -1,7 +1,6 @@
 package com.example.ui.theme
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
@@ -33,7 +32,6 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
@@ -52,64 +50,10 @@ class WaterGlassState(
     var isRecordingContent: Boolean = false
     var appliedBlurPx: Float = -1f
     var blurEnabled by mutableStateOf(true)
-    var accentColor by mutableStateOf(Color(0xFFF5F5F5))
-    var secondaryColor by mutableStateOf(Color(0xFF64748B))
-
-    fun solidSurfaceColor(): Color {
-        val tinted = lerp(Color(0xFF0B0E16), secondaryColor.copy(alpha = 1f), 0.34f)
-        return lerp(tinted, accentColor.copy(alpha = 1f), 0.08f).copy(alpha = 1f)
-    }
-
-    fun solidSurfaceTop(): Color {
-        val tinted = lerp(Color(0xFF131824), secondaryColor.copy(alpha = 1f), 0.42f)
-        return lerp(tinted, accentColor.copy(alpha = 1f), 0.13f).copy(alpha = 1f)
-    }
-
-    fun solidSurfaceDeep(): Color {
-        val tinted = lerp(Color(0xFF080A10), secondaryColor.copy(alpha = 1f), 0.24f)
-        return lerp(tinted, accentColor.copy(alpha = 1f), 0.04f).copy(alpha = 1f)
-    }
-
-    fun satinSurfaceBrush(): Brush = Brush.verticalGradient(
-        0.0f to solidSurfaceTop(),
-        0.52f to solidSurfaceColor(),
-        1.0f to solidSurfaceDeep()
-    )
-
-    fun satinTopBloomBrush(): Brush = Brush.verticalGradient(
-        0.0f to lerp(Color.White, accentColor.copy(alpha = 1f), 0.65f).copy(alpha = 0.11f),
-        0.38f to Color.White.copy(alpha = 0.025f),
-        1.0f to Color.Transparent
-    )
-
-    fun satinRimBrush(): Brush = Brush.verticalGradient(
-        0.0f to lerp(Color.White, accentColor.copy(alpha = 1f), 0.38f).copy(alpha = 0.30f),
-        0.45f to Color.White.copy(alpha = 0.10f),
-        1.0f to Color.White.copy(alpha = 0.04f)
-    )
-
-    fun satinCardBrush(): Brush {
-        val top = lerp(Color(0xFF131824), secondaryColor.copy(alpha = 1f), 0.32f)
-            .let { lerp(it, accentColor.copy(alpha = 1f), 0.09f) }
-            .copy(alpha = 1f)
-        val bottom = lerp(Color(0xFF0C0F17), secondaryColor.copy(alpha = 1f), 0.24f)
-            .let { lerp(it, accentColor.copy(alpha = 1f), 0.04f) }
-            .copy(alpha = 1f)
-        return Brush.verticalGradient(listOf(top, bottom))
-    }
-
-    fun satinCardRimBrush(): Brush = Brush.verticalGradient(
-        0.0f to lerp(Color.White, accentColor.copy(alpha = 1f), 0.30f).copy(alpha = 0.18f),
-        1.0f to Color.White.copy(alpha = 0.04f)
-    )
 }
 
 @Composable
-fun rememberWaterGlassState(
-    blurEnabled: Boolean = true,
-    accentColor: Color = Color(0xFFF5F5F5),
-    secondaryColor: Color = Color(0xFF64748B)
-): WaterGlassState {
+fun rememberWaterGlassState(blurEnabled: Boolean = true): WaterGlassState {
     val bgLayer = rememberGraphicsLayer()
     val contentLayer = rememberGraphicsLayer()
     val blurredBgLayer = rememberGraphicsLayer()
@@ -118,8 +62,6 @@ fun rememberWaterGlassState(
         WaterGlassState(bgLayer, contentLayer, blurredBgLayer, blurredAllLayer)
     }.also {
         it.blurEnabled = blurEnabled
-        it.accentColor = accentColor
-        it.secondaryColor = secondaryColor
     }
 }
 
@@ -216,15 +158,16 @@ fun Modifier.waterGlassContent(state: WaterGlassState?): Modifier = if (state ==
     }
 }
 
-private class OffsetRef(var offset: Offset = Offset.Zero)
-
 private fun DrawScope.drawPositionedGlassLayer(
     glass: WaterGlassState,
     itemOffset: Offset,
     bgOnly: Boolean
 ) {
-    val useStaticBgOnly = !glass.blurEnabled || bgOnly || glass.isRecordingContent || !glass.hasContent
-    val targetLayer = if (useStaticBgOnly) glass.blurredBgLayer else glass.blurredAllLayer
+    val targetLayer = when {
+        !glass.blurEnabled -> glass.bgLayer
+        bgOnly || glass.isRecordingContent || !glass.hasContent -> glass.blurredBgLayer
+        else -> glass.blurredAllLayer
+    }
     val dx = -(itemOffset.x - glass.rootOffset.x)
     val dy = -(itemOffset.y - glass.rootOffset.y)
     clipRect {
@@ -240,28 +183,25 @@ private fun Modifier.pureWaterGlass(
     bgOnly: Boolean = false
 ): Modifier = composed {
     val glass = LocalWaterGlassState.current
-    val itemOffset = remember { OffsetRef() }
+    val itemOffset = remember { mutableStateOf(Offset.Zero) }
     val base = this
         .onGloballyPositioned { coords ->
-            itemOffset.offset = coords.positionInWindow()
+            val pos = coords.positionInWindow()
+            if (itemOffset.value != pos) {
+                itemOffset.value = pos
+            }
         }
         .clip(shape)
 
     if (glass != null) {
-        if (glass.blurEnabled) {
-            base.drawBehind {
-                drawPositionedGlassLayer(glass, itemOffset.offset, bgOnly)
-                if (waterSheen != Color.Transparent) {
-                    drawRect(waterSheen)
-                }
+        base.drawBehind {
+            drawPositionedGlassLayer(glass, itemOffset.value, bgOnly)
+            if (!glass.blurEnabled) {
+                drawRect(Color(0x2E080A10))
+                drawRect(Color(0x0AFFFFFF))
+            } else if (waterSheen != Color.Transparent) {
+                drawRect(waterSheen)
             }
-        } else {
-            base
-                .drawBehind {
-                    drawRect(glass.satinSurfaceBrush())
-                    drawRect(glass.satinTopBloomBrush())
-                }
-                .border(0.85.dp, glass.satinRimBrush(), shape)
         }
     } else {
         base.background(waterSheen)
@@ -270,37 +210,21 @@ private fun Modifier.pureWaterGlass(
 
 fun Modifier.glassSheetSurface(shape: Shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)): Modifier = composed {
     val glass = LocalWaterGlassState.current
-    val itemOffset = remember { OffsetRef() }
+    val itemOffset = remember { mutableStateOf(Offset.Zero) }
     val base = this
         .onGloballyPositioned { coords ->
-            itemOffset.offset = coords.positionInWindow()
+            val pos = coords.positionInWindow()
+            if (itemOffset.value != pos) {
+                itemOffset.value = pos
+            }
         }
         .clip(shape)
 
     if (glass != null) {
-        if (glass.blurEnabled) {
-            base
-                .drawBehind {
-                    drawPositionedGlassLayer(glass, itemOffset.offset, bgOnly = false)
-                    drawRect(Color(0x2E080A10))
-                    drawRect(Color(0x06FFFFFF))
-                }
-                .border(
-                    width = 0.85.dp,
-                    brush = Brush.verticalGradient(
-                        0.0f to Color.White.copy(alpha = 0.20f),
-                        0.5f to Color.White.copy(alpha = 0.05f),
-                        1.0f to Color.Transparent
-                    ),
-                    shape = shape
-                )
-        } else {
-            base
-                .drawBehind {
-                    drawRect(glass.satinSurfaceBrush())
-                    drawRect(glass.satinTopBloomBrush())
-                }
-                .border(0.85.dp, glass.satinRimBrush(), shape)
+        base.drawBehind {
+            drawPositionedGlassLayer(glass, itemOffset.value, bgOnly = false)
+            drawRect(if (glass.blurEnabled) Color(0x36080A10) else Color(0x48080A10))
+            drawRect(Color(0x08FFFFFF))
         }
     } else {
         base.background(NocturneColors.MatteElevatedBg)
@@ -322,46 +246,25 @@ private val HeaderFadeMask = Brush.verticalGradient(
 
 fun Modifier.openTopGlassFade(): Modifier = composed {
     val glass = LocalWaterGlassState.current
-    val itemOffset = remember { OffsetRef() }
-    val blurOn = glass?.blurEnabled == true
-    if (blurOn && glass != null) {
-        this
-            .onGloballyPositioned { coords ->
-                itemOffset.offset = coords.positionInWindow()
-            }
-            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-            .drawBehind {
-                drawPositionedGlassLayer(glass, itemOffset.offset, bgOnly = false)
-                drawRect(HeaderTintBlurred)
-                drawRect(
-                    brush = HeaderFadeMask,
-                    blendMode = BlendMode.DstIn
-                )
-            }
-    } else {
-        this.drawBehind {
-            val topCol = glass?.solidSurfaceTop() ?: Color(0xFF131824)
-            val midCol = glass?.solidSurfaceColor() ?: Color(0xFF0B0E16)
-            val deepCol = glass?.solidSurfaceDeep() ?: Color(0xFF080A10)
-            drawRect(
-                Brush.verticalGradient(
-                    0.00f to topCol,
-                    0.66f to midCol,
-                    0.82f to midCol.copy(alpha = 0.90f),
-                    0.94f to deepCol.copy(alpha = 0.42f),
-                    1.00f to Color.Transparent
-                )
-            )
-            if (glass != null) {
-                drawRect(
-                    Brush.verticalGradient(
-                        0.0f to glass.accentColor.copy(alpha = 0.10f),
-                        0.55f to Color.Transparent
-                    )
-                )
+    val itemOffset = remember { mutableStateOf(Offset.Zero) }
+    this
+        .onGloballyPositioned { coords ->
+            val pos = coords.positionInWindow()
+            if (itemOffset.value != pos) {
+                itemOffset.value = pos
             }
         }
-    }
+        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+        .drawBehind {
+            if (glass != null) {
+                drawPositionedGlassLayer(glass, itemOffset.value, bgOnly = false)
+            }
+            drawRect(HeaderTintBlurred)
+            drawRect(
+                brush = HeaderFadeMask,
+                blendMode = BlendMode.DstIn
+            )
+        }
 }
 
 private val MatteCardBrush = Brush.verticalGradient(
@@ -378,19 +281,9 @@ private val MatteElevatedBrush = Brush.verticalGradient(
     )
 )
 
-fun Modifier.matteCard(shape: Shape = RoundedCornerShape(18.dp)): Modifier = composed {
-    val glass = LocalWaterGlassState.current
-    if (glass != null && !glass.blurEnabled) {
-        this
-            .clip(shape)
-            .background(glass.satinCardBrush())
-            .border(0.75.dp, glass.satinCardRimBrush(), shape)
-    } else {
-        this
-            .clip(shape)
-            .background(MatteCardBrush)
-    }
-}
+fun Modifier.matteCard(shape: Shape = RoundedCornerShape(18.dp)): Modifier = this
+    .clip(shape)
+    .background(MatteCardBrush)
 
 fun Modifier.waterDropBar(shape: Shape = RoundedCornerShape(26.dp), bgOnly: Boolean = false): Modifier =
     pureWaterGlass(shape = shape, waterSheen = Color(0x04FFFFFF), bgOnly = bgOnly)
@@ -398,16 +291,6 @@ fun Modifier.waterDropBar(shape: Shape = RoundedCornerShape(26.dp), bgOnly: Bool
 fun Modifier.frostedFloatingBar(shape: Shape = RoundedCornerShape(26.dp)): Modifier =
     pureWaterGlass(shape = shape, waterSheen = Color(0x04FFFFFF), bgOnly = false)
 
-fun Modifier.matteElevated(shape: Shape = RoundedCornerShape(24.dp)): Modifier = composed {
-    val glass = LocalWaterGlassState.current
-    if (glass != null && !glass.blurEnabled) {
-        this
-            .clip(shape)
-            .background(glass.satinSurfaceBrush())
-            .border(0.85.dp, glass.satinRimBrush(), shape)
-    } else {
-        this
-            .clip(shape)
-            .background(MatteElevatedBrush)
-    }
-}
+fun Modifier.matteElevated(shape: Shape = RoundedCornerShape(24.dp)): Modifier = this
+    .clip(shape)
+    .background(MatteElevatedBrush)

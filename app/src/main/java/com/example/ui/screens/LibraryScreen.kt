@@ -843,15 +843,10 @@ private fun PlaylistSongPickerOverlay(
         modifier = Modifier
             .fillMaxSize()
             .drawBehind {
-                if (glass != null && glass.blurEnabled) {
-                    drawLayer(glass.blurredBgLayer)
-                    drawRect(Color.Black.copy(alpha = 0.48f))
-                } else if (glass != null) {
-                    drawRect(glass.satinSurfaceBrush())
-                    drawRect(glass.satinTopBloomBrush())
-                } else {
-                    drawRect(NocturneColors.Black)
+                if (glass != null) {
+                    drawLayer(if (glass.blurEnabled) glass.blurredBgLayer else glass.bgLayer)
                 }
+                drawRect(Color.Black.copy(alpha = 0.48f))
             }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -1068,15 +1063,10 @@ private fun PlaylistEditorOverlay(
         modifier = Modifier
             .fillMaxSize()
             .drawBehind {
-                if (glass != null && glass.blurEnabled) {
-                    drawLayer(glass.blurredBgLayer)
-                    drawRect(Color.Black.copy(alpha = 0.50f))
-                } else if (glass != null) {
-                    drawRect(glass.satinSurfaceBrush())
-                    drawRect(glass.satinTopBloomBrush())
-                } else {
-                    drawRect(NocturneColors.Black)
+                if (glass != null) {
+                    drawLayer(if (glass.blurEnabled) glass.blurredBgLayer else glass.bgLayer)
                 }
+                drawRect(Color.Black.copy(alpha = 0.50f))
             }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
