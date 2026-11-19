@@ -1,63 +1,25 @@
-# Sukoon Nocturne — مشغل موسيقى أصلي (Kotlin + Jetpack Compose)
+# سُكون - Nocturne (Kotlin + Jetpack Compose)
 
-مشغل موسيقى أندرويد بواجهة AMOLED سوداء، كلمات متزامنة، أغلفة ألبومات، وتحميل من يوتيوب.
+A native Android music player built with Kotlin, Jetpack Compose, Material 3, Media3 (`ExoPlayer` / `MediaSessionService`), and a Super AMOLED pure black (`#000000`) & translucent water-drop glass UI.
 
-## هيكل المشروع
+## Features
 
-```
-music app/
-  sukoon-nocturne/          تطبيق أندرويد (Kotlin + Compose) ← التطبيق الحقيقي
-    app/src/main/java/com/example/
-      MainActivity.kt       نقطة الدخول والتنقّل
-      PlayerViewModel.kt    حالة التشغيل والمكتبة
-      data/                 المسح المحلي، الكلمات، الميتاداتا، الإعدادات
-      model/                الموديلات والنصوص (عربي/إنجليزي)
-      playback/             خدمة التشغيل
-      ui/screens/           الشاشات
-      ui/components/        مكوّنات مشتركة
-      ui/theme/             الثيم والألوان والخطوط
-    app/src/main/res/       الموارد والأيقونات
-    app/src/test/           اختبارات وحدة
-  tools/                    أدوات مساعدة (نسخ الرجوع المحلية)
-  docs/design/              صور التصاميم المعتمدة
-  _archive/                 ملفات معزولة قديمة (فلاتر + باك أب) — مو جزء من البناء
-```
+- **Local Music Library**: Scans device audio via `MediaStore.Audio.Media` with fast local caching, search, and sorting (Recent, Title, Artist, Duration).
+- **Playlists & Favorites**: Create, edit, search-pick, delete, and drag-reorder playlists, plus one-tap favorites.
+- **Artists & Albums**: Automatic artist normalization (`ArtistNormalizer`), junk-album filtering, and online cover/photo fetching via Deezer & iTunes (`OnlineMetadataResolver`) with local disk caching.
+- **Background Playback & Dual-Deck Crossfade**: `PlaybackService` (`MediaSessionService`) paired with `PlayerViewModel` for equal-power crossfade transitions, queue management, repeat modes, shuffle, and sleep timer.
+- **Synced & Plain Lyrics**: Automatic and manual search via LRCLIB (`LyricsRepository`), Franco-Arabic normalization, local `.lrc` file import, tap-to-seek lines, and timing offset adjustments (`-0.5s` / `+0.5s`).
+- **Smart Filtering & Folders**: Auto-exclude recordings, minimum duration threshold, custom keyword filters, quarantine restore page, and per-folder exclusion controls.
+- **Bilingual & Adaptive Appearance**: Full Arabic (RTL) and English support, dynamic cover-extracted accent colors, and configurable artwork/blur backdrop modes.
 
-## بناء وتثبيت
+## Project Structure
 
-```powershell
-cd sukoon-nocturne
+- `app/src/main/java/com/example/` — Application entry (`MainActivity`), `PlayerViewModel`, `PlaybackService`, `data/`, `model/`, `ui/` (`components/`, `screens/`, `theme/`)
+- `app/src/main/res/` — Strings, adaptive launcher icons, fonts, and themes
+- `app/src/test/` — Unit and Robolectric tests
 
-# بناء APK للتجربة (debug)
-& "$env:USERPROFILE\.gradle\wrapper\dists\gradle-9.3.1-all\9ot9r568e8zfvvd4mn8rbu1j0\gradle-9.3.1\bin\gradle.bat" assembleDebug
+## Build & Test
 
-# تثبيت على الجوال (يحتاج adb من Android SDK)
-& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r app\build\outputs\apk\debug\app-debug.apk
-```
-
-أو افتح مجلد `sukoon-nocturne` في Android Studio وشغّل ▶ مباشرة.
-
-**الأساسيات:** `applicationId = com.hiby.music`، `minSdk 24`، `targetSdk 36`، AGP 9.1.1، Gradle 9.3.1.
-مفاتيح يوتيوب تُقرأ من `.env` (انسخه من `.env.example`) — غير متتبَّع في جيت.
-
-## اختبارات
-
-```powershell
-cd sukoon-nocturne
-& "...\gradle-9.3.1\bin\gradle.bat" testDebugUnitTest
-```
-
-## نسخ الرجوع (بدون GitHub)
-
-```powershell
-tools\snap.bat save "شنو سويت"
-tools\snap.bat list
-tools\snap.bat back 3
-```
-
-تحديث التطبيق على الجوال يدوي دائماً: تعديل → بناء APK → `adb install -r`.
-
-## ملاحظات
-
-- لا يوجد أي ريموت جيت ولا تحديث تلقائي للتطبيق.
-- `_archive/` فيه نسخة فلاتر القديمة والملفات الميتة؛ راجع `_archive/README.md`.
+- `applicationId`: `com.aistudio.nocturne.kxmpzq`
+- `minSdk`: `24`, `targetSdk`: `36`, `compileSdk`: `36`
+- Run unit tests: `gradle :app:testDebugUnitTest`
