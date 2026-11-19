@@ -621,6 +621,28 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             if (lastFetchedLyricsTrackId != track.id) {
                 fetchLyricsForTrack(updated)
             }
+            val artBytes = audioRepo.loadNotificationArtworkBytes(updated.artUri)
+            if (artBytes != null && _currentTrack.value?.id == track.id) {
+                val ctrl = mediaController
+                if (ctrl != null) {
+                    val idx = ctrl.currentMediaItemIndex
+                    val curItem = ctrl.currentMediaItem
+                    if (idx >= 0 && curItem != null && curItem.mediaId == updated.id && curItem.mediaMetadata.artworkData == null) {
+                        val updatedMetadata = curItem.mediaMetadata.buildUpon()
+                            .setTitle(updated.title)
+                            .setDisplayTitle(updated.title)
+                            .setArtist(updated.artist)
+                            .setAlbumTitle(updated.album)
+                            .setArtworkData(artBytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+                            .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
+                            .build()
+                        val updatedItem = curItem.buildUpon()
+                            .setMediaMetadata(updatedMetadata)
+                            .build()
+                        ctrl.replaceMediaItem(idx, updatedItem)
+                    }
+                }
+            }
         }
     }
 
@@ -1040,19 +1062,30 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    private fun toMediaItem(track: Track): MediaItem {
+    private fun toMediaItem(track: Track, artworkBytes: ByteArray? = null): MediaItem {
         val extras = Bundle().apply { putString("trackId", track.id) }
-        val metadata = MediaMetadata.Builder()
+        val metaBuilder = MediaMetadata.Builder()
             .setTitle(track.title)
+            .setDisplayTitle(track.title)
             .setArtist(track.artist)
             .setAlbumTitle(track.album)
-            .setArtworkUri(track.artUri?.let { Uri.parse(it) })
+            .setIsPlayable(true)
+            .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
             .setExtras(extras)
-            .build()
+        if (artworkBytes != null && artworkBytes.isNotEmpty()) {
+            metaBuilder.setArtworkData(artworkBytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+        } else {
+            val publicUri = track.artUri?.takeIf {
+                it.startsWith("http://") || it.startsWith("https://") || it.startsWith("content://")
+            }
+            if (publicUri != null) {
+                metaBuilder.setArtworkUri(Uri.parse(publicUri))
+            }
+        }
         return MediaItem.Builder()
             .setMediaId(track.id)
             .setUri(track.contentUri)
-            .setMediaMetadata(metadata)
+            .setMediaMetadata(metaBuilder.build())
             .build()
     }
 

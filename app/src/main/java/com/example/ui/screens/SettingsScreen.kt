@@ -688,7 +688,7 @@ fun SettingsScreen(
         if (showClearDialog) {
             AlertDialog(
                 onDismissRequest = { showClearDialog = false },
-                containerColor = NocturneColors.MatteElevatedBg,
+                containerColor = waterGlass?.solidSurfaceColor() ?: NocturneColors.MatteElevatedBg,
                 title = { Text(strings.clearLibrary, color = Color.White, fontWeight = FontWeight.Bold) },
                 text = { Text(strings.clearLibraryConfirm, color = NocturneColors.TextSecondary) },
                 confirmButton = {
@@ -970,10 +970,14 @@ private fun ExcludedTracksPage(
         }
     }
 
+    val glass = LocalWaterGlassState.current
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(NocturneColors.Black)
+            .then(
+                if (glass != null) Modifier.background(glass.satinSurfaceBrush())
+                else Modifier.background(NocturneColors.Black)
+            )
     ) {
         Column(
             modifier = Modifier
@@ -1259,10 +1263,14 @@ private fun MusicFoldersPage(
     val allPaths = remember(folderItems) { folderItems.map { it.path }.toSet() }
     val allIncluded = folderItems.isNotEmpty() && folderItems.none { it.isExcluded }
 
+    val glass = LocalWaterGlassState.current
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(NocturneColors.Black)
+            .then(
+                if (glass != null) Modifier.background(glass.satinSurfaceBrush())
+                else Modifier.background(NocturneColors.Black)
+            )
     ) {
         Column(
             modifier = Modifier

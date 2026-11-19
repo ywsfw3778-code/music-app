@@ -183,7 +183,11 @@ fun FullPlayerSheet(
         }
     }
 
-    val playerGlassState = rememberWaterGlassState(blurEnabled = glassBlurEnabled)
+    val playerGlassState = rememberWaterGlassState(
+        blurEnabled = glassBlurEnabled,
+        accentColor = accentColor,
+        secondaryColor = secondaryColor
+    )
 
     Box(
         modifier = Modifier
@@ -213,7 +217,9 @@ fun FullPlayerSheet(
                         model = remember(artUri) {
                             ImageRequest.Builder(context)
                                 .data(artUri)
-                                .size(128)
+                                .size(256)
+                                .memoryCacheKey("${artUri}_bg256")
+                                .diskCacheKey(artUri)
                                 .crossfade(false)
                                 .build()
                         },

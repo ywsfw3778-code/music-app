@@ -13,7 +13,7 @@ android {
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.nocturne.kxmpzq"
+    applicationId = "com.heytap.music"
     minSdk = 24
     targetSdk = 36
     versionCode = 2
@@ -79,6 +79,14 @@ secrets {
 }
 
 googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
+
+tasks.register<Copy>("exportApk") {
+  dependsOn("assembleDebug")
+  val vName = android.defaultConfig.versionName ?: "1.0"
+  from(layout.buildDirectory.file("outputs/apk/debug/app-debug.apk"))
+  into(rootProject.layout.projectDirectory.dir("releases"))
+  rename { "sukoon-nocturne-v$vName.apk" }
+}
 
 dependencies {
   implementation(platform(libs.androidx.compose.bom))

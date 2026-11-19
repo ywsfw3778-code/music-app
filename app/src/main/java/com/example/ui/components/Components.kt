@@ -1,10 +1,12 @@
 package com.example.ui.components
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -15,6 +17,8 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +27,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -45,18 +51,19 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,27 +71,33 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import coil.size.Precision
 import com.example.data.AudioRepository
 import com.example.model.AppStrings
 import com.example.model.Playlist
 import com.example.model.Track
+import com.example.ui.theme.LocalWaterGlassState
 import com.example.ui.theme.NocturneColors
 import com.example.ui.theme.frostedFloatingBar
+import com.example.ui.theme.glassSheetSurface
 import com.example.ui.theme.matteCard
 import kotlinx.coroutines.flow.StateFlow
-import androidx.compose.runtime.collectAsState
+import kotlin.math.roundToInt
 
 @Composable
 fun TrackArtwork(
@@ -96,6 +109,11 @@ fun TrackArtwork(
     fallbackArtUri: String? = null
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
+    val targetPx = remember(size, density) {
+        val rawPx = with(density) { size.roundToPx() }
+        (rawPx * 1.25f).toInt().coerceIn(256, 1080)
+    }
     val shape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
     val bgBrush = remember(accentColor) {
         Brush.linearGradient(
@@ -132,11 +150,12 @@ fun TrackArtwork(
     ) {
         if (!displayUri.isNullOrBlank()) {
             AsyncImage(
-                model = remember(displayUri) {
+                model = remember(displayUri, targetPx) {
                     ImageRequest.Builder(context)
                         .data(displayUri)
-                        .size(128, 128)
-                        .memoryCacheKey(displayUri)
+                        .size(targetPx, targetPx)
+                        .precision(Precision.INEXACT)
+                        .memoryCacheKey("${displayUri}_$targetPx")
                         .diskCacheKey(displayUri)
                         .crossfade(false)
                         .build()
@@ -438,7 +457,6 @@ private fun MiniPlayerProgressBar(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackOptionsBottomSheet(
     track: Track,
@@ -454,24 +472,104 @@ fun TrackOptionsBottomSheet(
     onShowDetails: () -> Unit,
     onExclude: () -> Unit
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = NocturneColors.MatteElevatedBg
+    BackHandler(onBack = onDismiss)
+    var dragOffsetY by remember(track.id) { mutableFloatStateOf(0f) }
+    val animatedOffsetY by animateFloatAsState(
+        targetValue = dragOffsetY,
+        animationSpec = tween(140, easing = FastOutSlowInEasing),
+        label = "sheetDragY"
+    )
+    val dismissThresholdPx = with(LocalDensity.current) { 110.dp.toPx() }
+    val sheetShape = remember { RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.48f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onDismiss
+            ),
+        contentAlignment = Alignment.BottomCenter
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+                .offset { IntOffset(0, animatedOffsetY.roundToInt().coerceAtLeast(0)) }
+                .glassSheetSurface(sheetShape)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {}
+                )
+                .pointerInput(track.id) {
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { change, dragAmount ->
+                            change.consume()
+                            dragOffsetY = (dragOffsetY + dragAmount).coerceAtLeast(0f)
+                        },
+                        onDragEnd = {
+                            if (dragOffsetY > dismissThresholdPx) {
+                                onDismiss()
+                            } else {
+                                dragOffsetY = 0f
+                            }
+                        },
+                        onDragCancel = { dragOffsetY = 0f }
+                    )
+                }
+                .navigationBarsPadding()
+                .padding(horizontal = 18.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Text(
-                text = track.title,
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                style = TextStyle(textDirection = TextDirection.Content),
-                modifier = Modifier.padding(bottom = 8.dp)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(top = 2.dp, bottom = 12.dp)
+                    .width(42.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.White.copy(alpha = 0.34f))
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TrackArtwork(
+                    artUri = track.artUri,
+                    size = 46.dp,
+                    cornerRadius = 11.dp,
+                    accentColor = accentColor
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = track.title,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.5.sp,
+                        style = TextStyle(textDirection = TextDirection.Content),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = track.artist.ifBlank { strings.unknownArtist },
+                        color = NocturneColors.TextSecondary,
+                        fontSize = 12.sp,
+                        style = TextStyle(textDirection = TextDirection.Content),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                thickness = 1.dp,
+                color = Color.White.copy(alpha = 0.10f)
             )
             SheetActionRow(Icons.AutoMirrored.Rounded.PlaylistPlay, strings.playNext, accentColor, onPlayNext)
             SheetActionRow(Icons.AutoMirrored.Rounded.QueueMusic, strings.addToQueue, accentColor, onAddToQueue)
@@ -485,7 +583,7 @@ fun TrackOptionsBottomSheet(
             SheetActionRow(Icons.Rounded.Lyrics, strings.viewLyrics, accentColor, onViewLyrics)
             SheetActionRow(Icons.Rounded.Info, strings.trackDetails, accentColor, onShowDetails)
             SheetActionRow(Icons.Rounded.Block, strings.deleteFromLibrary, NocturneColors.Danger, onExclude)
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
         }
     }
 }
@@ -497,9 +595,10 @@ fun TrackDetailsDialog(
     accentColor: Color,
     onDismiss: () -> Unit
 ) {
+    val surfaceBg = LocalWaterGlassState.current?.solidSurfaceColor() ?: NocturneColors.MatteElevatedBg
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = NocturneColors.MatteElevatedBg,
+        containerColor = surfaceBg,
         title = { Text(strings.trackDetails, color = Color.White, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -526,9 +625,10 @@ fun PlaylistPickerDialog(
     onSelectPlaylist: (String, String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val surfaceBg = LocalWaterGlassState.current?.solidSurfaceColor() ?: NocturneColors.MatteElevatedBg
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = NocturneColors.MatteElevatedBg,
+        containerColor = surfaceBg,
         title = { Text(strings.addToPlaylist, color = Color.White, fontWeight = FontWeight.Bold) },
         text = {
             if (playlists.isEmpty()) {

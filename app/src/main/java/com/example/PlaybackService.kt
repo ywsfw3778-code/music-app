@@ -9,6 +9,7 @@ import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 
@@ -20,6 +21,12 @@ class PlaybackService : MediaSessionService() {
     @OptIn(UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
+
+        val notificationProvider = DefaultMediaNotificationProvider.Builder(this)
+            .setChannelId("sukoon_playback_channel")
+            .setChannelName(R.string.app_name)
+            .build()
+        setMediaNotificationProvider(notificationProvider)
 
         val audioAttributes = AudioAttributes.Builder()
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)

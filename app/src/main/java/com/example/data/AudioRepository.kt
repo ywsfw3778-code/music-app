@@ -16,8 +16,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import android.util.LruCache
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.ConcurrentHashMap
@@ -28,6 +30,7 @@ class AudioRepository(private val context: Context) {
         private val artSemaphore = Semaphore(4)
         private val artMemoryCache = ConcurrentHashMap<String, Triple<String?, Int, Int>>()
         private val resolvedArtCache = ConcurrentHashMap<String, String>()
+        private val notificationArtCache = LruCache<String, ByteArray>(12)
 
         suspend fun resolveArtUri(context: Context, rawUri: String?): String? {
             if (rawUri.isNullOrBlank()) return null
@@ -407,6 +410,38 @@ class AudioRepository(private val context: Context) {
         val result = Triple(Uri.fromFile(artFile).toString(), accent, secondary)
         artMemoryCache[track.id] = result
         result
+    }
+
+    suspend fun loadNotificationArtworkBytes(artUri: String?): ByteArray? = withContext(Dispatchers.IO) {
+        if (artUri.isNullOrBlank() || artUri.startsWith("track_art://")) return@withContext null
+        notificationArtCache.get(artUri)?.let { return@withContext it }
+        val filePath = Uri.parse(artUri).path ?: return@withContext null
+        val file = File(filePath)
+        if (!file.exists() || file.length() == 0L) return@withContext null
+
+        val bytes = runCatching {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.absolutePath, bounds)
+            var sampleSize = 1
+            val maxDim = maxOf(bounds.outWidth, bounds.outHeight)
+            while (maxDim / sampleSize > 512) {
+                sampleSize *= 2
+            }
+            val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+            val bmp = BitmapFactory.decodeFile(file.absolutePath, decodeOpts) ?: return@runCatching null
+            try {
+                val out = ByteArrayOutputStream()
+                bmp.compress(Bitmap.CompressFormat.JPEG, 85, out)
+                out.toByteArray()
+            } finally {
+                bmp.recycle()
+            }
+        }.getOrNull()
+
+        if (bytes != null && bytes.isNotEmpty()) {
+            notificationArtCache.put(artUri, bytes)
+        }
+        bytes
     }
 
     private fun extractCoverColors(bitmap: Bitmap): Triple<Int, Int, Int> {

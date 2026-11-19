@@ -182,15 +182,19 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
     var detailsTrack by remember { mutableStateOf<Track?>(null) }
     var playlistPickerTrack by remember { mutableStateOf<Track?>(null) }
 
-    BackHandler(enabled = showFullPlayer) {
+    BackHandler(enabled = showFullPlayer && menuTrack == null) {
         showFullPlayer = false
     }
-    BackHandler(enabled = !showFullPlayer && currentTab != MainTab.LIBRARY) {
+    BackHandler(enabled = !showFullPlayer && menuTrack == null && currentTab != MainTab.LIBRARY) {
         currentTab = MainTab.LIBRARY
     }
 
     val layoutDir = LayoutDirection.Rtl
-    val waterGlassState = rememberWaterGlassState(blurEnabled = settings.glassBlurEnabled)
+    val waterGlassState = rememberWaterGlassState(
+        blurEnabled = settings.glassBlurEnabled,
+        accentColor = accentColor,
+        secondaryColor = secondaryColor
+    )
 
     LaunchedEffect(currentTab, showFullPlayer) {
         if (currentTab == MainTab.SETTINGS || showFullPlayer) {
@@ -212,7 +216,7 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .waterGlassBackground(waterGlassState, active = !showFullPlayer)
+                        .waterGlassBackground(waterGlassState, active = !showFullPlayer || menuTrack != null)
                 ) {
                     val effectiveBgUri = if (settings.artworkBgMode != ArtworkBgMode.OFF) bgArtUriState else null
                     Crossfade(
@@ -225,7 +229,9 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                                 model = remember(artUri) {
                                     ImageRequest.Builder(context)
                                         .data(artUri)
-                                        .size(128)
+                                        .size(256)
+                                        .memoryCacheKey("${artUri}_bg256")
+                                        .diskCacheKey(artUri)
                                         .crossfade(false)
                                         .build()
                                 },
@@ -430,34 +436,48 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                     }
                 }
 
+                var lastMenuTrack by remember { mutableStateOf<Track?>(null) }
+                if (menuTrack != null) {
+                    lastMenuTrack = menuTrack
+                }
+                AnimatedVisibility(
+                    visible = menuTrack != null,
+                    enter = fadeIn(tween(180)) + slideInVertically(
+                        animationSpec = tween(240, easing = FastOutSlowInEasing)
+                    ) { it / 4 },
+                    exit = fadeOut(tween(150)) + slideOutVertically(
+                        animationSpec = tween(180, easing = FastOutSlowInEasing)
+                    ) { it / 4 }
+                ) {
+                    lastMenuTrack?.let { t ->
+                        val favoriteIds by viewModel.favoriteIds.collectAsState()
+                        TrackOptionsBottomSheet(
+                            track = t,
+                            strings = strings,
+                            isFavorite = favoriteIds.contains(t.id),
+                            accentColor = accentColor,
+                            onDismiss = { menuTrack = null },
+                            onPlayNext = { viewModel.playNext(t); menuTrack = null },
+                            onAddToQueue = { viewModel.addToQueue(t); menuTrack = null },
+                            onToggleFavorite = { viewModel.toggleFavorite(t.id); menuTrack = null },
+                            onAddToPlaylist = { playlistPickerTrack = t; menuTrack = null },
+                            onViewLyrics = {
+                                if (currentTrack?.id != t.id) viewModel.playTrack(t)
+                                showFullPlayer = true
+                                menuTrack = null
+                            },
+                            onShowDetails = { detailsTrack = t; menuTrack = null },
+                            onExclude = { viewModel.excludeTrack(t); menuTrack = null }
+                        )
+                    }
+                }
+
                 ToastBannerOverlay(
                     viewModel = viewModel,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .statusBarsPadding()
                         .padding(top = 12.dp)
-                )
-            }
-
-            menuTrack?.let { t ->
-                val favoriteIds by viewModel.favoriteIds.collectAsState()
-                TrackOptionsBottomSheet(
-                    track = t,
-                    strings = strings,
-                    isFavorite = favoriteIds.contains(t.id),
-                    accentColor = accentColor,
-                    onDismiss = { menuTrack = null },
-                    onPlayNext = { viewModel.playNext(t); menuTrack = null },
-                    onAddToQueue = { viewModel.addToQueue(t); menuTrack = null },
-                    onToggleFavorite = { viewModel.toggleFavorite(t.id); menuTrack = null },
-                    onAddToPlaylist = { playlistPickerTrack = t; menuTrack = null },
-                    onViewLyrics = {
-                        if (currentTrack?.id != t.id) viewModel.playTrack(t)
-                        showFullPlayer = true
-                        menuTrack = null
-                    },
-                    onShowDetails = { detailsTrack = t; menuTrack = null },
-                    onExclude = { viewModel.excludeTrack(t); menuTrack = null }
                 )
             }
 

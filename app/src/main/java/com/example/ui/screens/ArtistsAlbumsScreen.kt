@@ -83,6 +83,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import coil.size.Precision
 import com.example.model.Album
 import com.example.model.AppStrings
 import com.example.model.Artist
@@ -548,7 +549,10 @@ private fun ArtistGridItem(
                     model = remember(photo) {
                         ImageRequest.Builder(context)
                             .data(photo)
-                            .size(200, 200)
+                            .size(480, 480)
+                            .precision(Precision.INEXACT)
+                            .memoryCacheKey("${photo}_480")
+                            .diskCacheKey(photo)
                             .crossfade(false)
                             .build()
                     },
@@ -641,7 +645,10 @@ private fun AlbumGridItem(
                     model = remember(displayArt) {
                         ImageRequest.Builder(context)
                             .data(displayArt)
-                            .size(240, 240)
+                            .size(512, 512)
+                            .precision(Precision.INEXACT)
+                            .memoryCacheKey("${displayArt}_512")
+                            .diskCacheKey(displayArt)
                             .crossfade(false)
                             .build()
                     },
@@ -771,7 +778,10 @@ private fun ArtistDetailView(
                             model = remember(photo) {
                                 ImageRequest.Builder(context)
                                     .data(photo)
-                                    .size(240)
+                                    .size(640, 640)
+                                    .precision(Precision.INEXACT)
+                                    .memoryCacheKey("${photo}_640")
+                                    .diskCacheKey(photo)
                                     .crossfade(true)
                                     .build()
                             },
@@ -950,7 +960,10 @@ private fun AlbumDetailView(
                             model = remember(bannerArt) {
                                 ImageRequest.Builder(context)
                                     .data(bannerArt)
-                                    .size(280)
+                                    .size(720, 720)
+                                    .precision(Precision.INEXACT)
+                                    .memoryCacheKey("${bannerArt}_720")
+                                    .diskCacheKey(bannerArt)
                                     .crossfade(true)
                                     .build()
                             },

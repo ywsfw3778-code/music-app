@@ -21,6 +21,7 @@ local.properties
 
 # Installable packages
 *.apk
+!releases/*.apk
 *.aab
 
 # Archives left over from the legacy Flutter app
