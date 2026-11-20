@@ -54,6 +54,12 @@ android {
       // AI Studio.
       signingConfig = signingConfigs.getByName("debugConfig")
     }
+    create("github") {
+      initWith(getByName("release"))
+      isDebuggable = false
+      matchingFallbacks += listOf("release")
+      signingConfig = signingConfigs.getByName("debugConfig")
+    }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
@@ -81,9 +87,9 @@ secrets {
 googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
 
 tasks.register<Copy>("exportApk") {
-  dependsOn("assembleDebug")
+  dependsOn("assembleGithub")
   val vName = android.defaultConfig.versionName ?: "1.0"
-  from(layout.buildDirectory.file("outputs/apk/debug/app-debug.apk"))
+  from(layout.buildDirectory.file("outputs/apk/github/app-github.apk"))
   into(rootProject.layout.projectDirectory.dir("releases"))
   rename { "sukoon-nocturne-v$vName.apk" }
 }
