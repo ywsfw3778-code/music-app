@@ -32,6 +32,13 @@ class AudioRepository(private val context: Context) {
         private val resolvedArtCache = ConcurrentHashMap<String, String>()
         private val notificationArtCache = LruCache<String, ByteArray>(12)
 
+        fun invalidateTrackArtCache(trackId: String) {
+            artMemoryCache.remove(trackId)
+            val prefix = "track_art://$trackId?"
+            resolvedArtCache.keys.removeIf { it.startsWith(prefix) || it == "track_art://$trackId" }
+            notificationArtCache.evictAll()
+        }
+
         suspend fun resolveArtUri(context: Context, rawUri: String?): String? {
             if (rawUri.isNullOrBlank()) return null
             if (!rawUri.startsWith("track_art://")) return rawUri

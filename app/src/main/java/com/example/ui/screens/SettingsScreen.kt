@@ -44,13 +44,17 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.ImageSearch
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Search
@@ -59,6 +63,7 @@ import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -86,6 +91,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
@@ -115,8 +121,10 @@ fun SettingsScreen(
     settings: AppSettings,
     activeCount: Int,
     excludedCount: Int,
+    activeTracks: List<Track> = emptyList(),
     excludedTracks: List<Track>,
     folderItems: List<FolderItem> = emptyList(),
+    artworkFetchProgress: Pair<Int, Int>? = null,
     hasNotificationPermission: Boolean,
     accentColor: Color,
     onLanguageChange: (AppLanguage) -> Unit,
@@ -127,6 +135,7 @@ fun SettingsScreen(
     onRemoveKeyword: (String) -> Unit,
     onToggleExcludedFolder: (String) -> Unit = {},
     onSetAllFoldersExcluded: (Set<String>, Boolean) -> Unit = { _, _ -> },
+    onFetchTracksArtwork: (Set<String>) -> Unit = {},
     onDynamicAccentChange: (Boolean) -> Unit,
     onArtworkBgModeChange: (ArtworkBgMode) -> Unit,
     onGlassBlurChange: (Boolean) -> Unit,
@@ -141,9 +150,10 @@ fun SettingsScreen(
     var showClearDialog by remember { mutableStateOf(false) }
     var showExcludedPage by remember { mutableStateOf(false) }
     var showFoldersPage by remember { mutableStateOf(false) }
+    var showOnlineArtPage by remember { mutableStateOf(false) }
     val waterGlass = LocalWaterGlassState.current
 
-    val hasSubPage = showExcludedPage || showFoldersPage
+    val hasSubPage = showExcludedPage || showFoldersPage || showOnlineArtPage
 
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
@@ -495,6 +505,71 @@ fun SettingsScreen(
 
                 item {
                     SettingsCard(
+                        title = strings.onlineArtSection,
+                        icon = Icons.Rounded.ImageSearch,
+                        accentColor = accentColor
+                    ) {
+                        Text(
+                            text = strings.onlineArtDesc,
+                            color = NocturneColors.TextSecondary,
+                            fontSize = 12.sp
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        val missingArtCount = remember(activeTracks) {
+                            activeTracks.count { it.artUri.isNullOrBlank() || it.artUri.startsWith("track_art://") }
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color.White.copy(alpha = 0.06f))
+                                .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(14.dp))
+                                .testTag("settings_open_online_art")
+                                .clickable { showOnlineArtPage = true }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(CircleShape)
+                                        .background(accentColor.copy(alpha = 0.16f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Rounded.CloudDownload, null, tint = accentColor, modifier = Modifier.size(17.dp))
+                                }
+                                Column {
+                                    Text(
+                                        text = strings.onlineArtOpenAction,
+                                        color = Color.White,
+                                        fontSize = 13.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = if (strings.isRtl) "$missingArtCount ${strings.onlineArtNoCoverBadge} · ${activeTracks.size} ${strings.songsCount}"
+                                        else "$missingArtCount missing cover · ${activeTracks.size} ${strings.songsCount}",
+                                        color = NocturneColors.TextSecondary,
+                                        fontSize = 11.5.sp
+                                    )
+                                }
+                            }
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = accentColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    SettingsCard(
                         title = strings.appearanceSection,
                         icon = Icons.Rounded.Palette,
                         accentColor = accentColor
@@ -684,6 +759,22 @@ fun SettingsScreen(
                     onToggleExcludedFolder = onToggleExcludedFolder,
                     onSetAllFoldersExcluded = onSetAllFoldersExcluded,
                     onClose = { showFoldersPage = false }
+                )
+            }
+
+            AnimatedVisibility(
+                visible = showOnlineArtPage,
+                enter = slideInHorizontally { it } + fadeIn(tween(200)),
+                exit = slideOutHorizontally { it } + fadeOut(tween(180))
+            ) {
+                OnlineArtworkPickerPage(
+                    tracks = activeTracks,
+                    strings = strings,
+                    accentColor = accentColor,
+                    bottomPadding = bottomPadding,
+                    fetchProgress = artworkFetchProgress,
+                    onFetchSelected = onFetchTracksArtwork,
+                    onClose = { showOnlineArtPage = false }
                 )
             }
         }
@@ -1483,6 +1574,346 @@ private fun MusicFoldersPage(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OnlineArtworkPickerPage(
+    tracks: List<Track>,
+    strings: AppStrings,
+    accentColor: Color,
+    bottomPadding: PaddingValues,
+    fetchProgress: Pair<Int, Int>?,
+    onFetchSelected: (Set<String>) -> Unit,
+    onClose: () -> Unit
+) {
+    BackHandler(enabled = true, onBack = onClose)
+
+    var searchQuery by remember { mutableStateOf("") }
+    var onlyMissing by remember { mutableStateOf(false) }
+    var selectedIds by remember { mutableStateOf(setOf<String>()) }
+
+    val filteredTracks = remember(tracks, searchQuery, onlyMissing) {
+        val q = searchQuery.trim()
+        tracks.filter { t ->
+            val hasCover = !t.artUri.isNullOrBlank() && !t.artUri.startsWith("track_art://")
+            val matchesFilter = !onlyMissing || !hasCover
+            val matchesQuery = q.isEmpty() ||
+                t.title.contains(q, ignoreCase = true) ||
+                t.artist.contains(q, ignoreCase = true) ||
+                t.album.contains(q, ignoreCase = true)
+            matchesFilter && matchesQuery
+        }
+    }
+
+    val filteredIds = remember(filteredTracks) { filteredTracks.map { it.id }.toSet() }
+    val allFilteredSelected = filteredIds.isNotEmpty() && filteredIds.all { selectedIds.contains(it) }
+    val isFetching = fetchProgress != null
+    val glass = LocalWaterGlassState.current
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .drawBehind {
+                if (glass != null) {
+                    drawFullScreenGlassBackground(glass)
+                    drawRect(Color.Black.copy(alpha = 0.45f))
+                } else {
+                    drawRect(NocturneColors.Black)
+                }
+            }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp)
+        ) {
+            Spacer(Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onClose,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.08f))
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = strings.onlineArtPageTitle,
+                        color = Color.White,
+                        fontSize = 21.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        text = strings.onlineArtPageSubtitle,
+                        color = NocturneColors.TextSecondary,
+                        fontSize = 11.5.sp
+                    )
+                }
+
+                if (filteredTracks.isNotEmpty() && !isFetching) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(accentColor.copy(alpha = 0.14f))
+                            .clickable {
+                                selectedIds = if (allFilteredSelected) {
+                                    selectedIds - filteredIds
+                                } else {
+                                    selectedIds + filteredIds
+                                }
+                            }
+                            .padding(horizontal = 12.dp, vertical = 7.dp)
+                    ) {
+                        Text(
+                            text = if (allFilteredSelected) strings.deselectAll else strings.selectAll,
+                            color = accentColor,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.White.copy(alpha = 0.08f))
+                    .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(50))
+                    .padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Search,
+                    contentDescription = null,
+                    tint = NocturneColors.TextMuted,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                BasicTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    singleLine = true,
+                    textStyle = TextStyle(color = Color.White, fontSize = 13.5.sp, fontFamily = AppFontFamily),
+                    cursorBrush = SolidColor(accentColor),
+                    decorationBox = { inner ->
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                            if (searchQuery.isEmpty()) {
+                                Text(strings.searchPlaceholder, color = NocturneColors.TextMuted, fontSize = 12.5.sp)
+                            }
+                            inner()
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Rounded.Close, null, tint = NocturneColors.TextMuted, modifier = Modifier.size(14.dp))
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(false to strings.onlineArtFilterAll, true to strings.onlineArtFilterMissing).forEach { (missingOnly, label) ->
+                    val active = onlyMissing == missingOnly
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(50))
+                            .background(if (active) accentColor else Color.White.copy(alpha = 0.07f))
+                            .border(
+                                1.dp,
+                                if (active) accentColor else Color.White.copy(alpha = 0.10f),
+                                RoundedCornerShape(50)
+                            )
+                            .clickable { onlyMissing = missingOnly }
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (active) Color.Black else Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            if (filteredTracks.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (onlyMissing) strings.onlineArtEmptyMissing else strings.noSearchResults,
+                        color = NocturneColors.TextSecondary,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(bottom = 12.dp)
+                ) {
+                    items(filteredTracks, key = { it.id }, contentType = { "online_art_track" }) { track ->
+                        val isSelected = selectedIds.contains(track.id)
+                        val hasCover = !track.artUri.isNullOrBlank() && !track.artUri.startsWith("track_art://")
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(
+                                    if (isSelected) accentColor.copy(alpha = 0.14f)
+                                    else Color.White.copy(alpha = 0.05f)
+                                )
+                                .border(
+                                    1.dp,
+                                    if (isSelected) accentColor.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.08f),
+                                    RoundedCornerShape(16.dp)
+                                )
+                                .clickable(enabled = !isFetching) {
+                                    selectedIds = if (isSelected) selectedIds - track.id else selectedIds + track.id
+                                }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TrackArtwork(
+                                artUri = track.artUri,
+                                size = 46.dp,
+                                cornerRadius = 11.dp,
+                                accentColor = accentColor
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = track.title,
+                                    color = Color.White,
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    style = TextStyle(textDirection = TextDirection.Content),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(Modifier.height(3.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = track.artist.ifBlank { strings.unknownArtist },
+                                        color = NocturneColors.TextSecondary,
+                                        fontSize = 11.5.sp,
+                                        style = TextStyle(textDirection = TextDirection.Content),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false)
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(50))
+                                            .background(
+                                                if (hasCover) NocturneColors.Emerald.copy(alpha = 0.16f)
+                                                else Color.White.copy(alpha = 0.09f)
+                                            )
+                                            .padding(horizontal = 7.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = if (hasCover) strings.onlineArtHasCoverBadge else strings.onlineArtNoCoverBadge,
+                                            color = if (hasCover) NocturneColors.Emerald else NocturneColors.TextMuted,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Icon(
+                                imageVector = if (isSelected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                                contentDescription = null,
+                                tint = if (isSelected) accentColor else NocturneColors.TextMuted,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (selectedIds.isNotEmpty() || isFetching) {
+                Button(
+                    onClick = { onFetchSelected(selectedIds) },
+                    enabled = !isFetching && selectedIds.isNotEmpty(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = accentColor,
+                        contentColor = Color.Black,
+                        disabledContainerColor = accentColor.copy(alpha = 0.45f),
+                        disabledContentColor = Color.Black
+                    ),
+                    shape = RoundedCornerShape(50),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = bottomPadding.calculateBottomPadding() + 8.dp)
+                        .height(48.dp)
+                        .testTag("online_art_fetch_button")
+                ) {
+                    if (isFetching && fetchProgress != null) {
+                        CircularProgressIndicator(
+                            color = Color.Black,
+                            strokeWidth = 2.5.dp,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            text = "${strings.onlineArtFetchingProgress} (${fetchProgress.first}/${fetchProgress.second})",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    } else {
+                        Icon(Icons.Rounded.CloudDownload, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "${strings.onlineArtFetchButton} (${selectedIds.size})",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.5.sp
+                        )
+                    }
+                }
+            } else {
+                Spacer(Modifier.height(bottomPadding.calculateBottomPadding()))
             }
         }
     }

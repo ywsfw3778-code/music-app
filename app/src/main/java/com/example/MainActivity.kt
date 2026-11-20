@@ -80,6 +80,7 @@ import com.example.model.Track
 import com.example.ui.components.BlurredWallpaperImage
 import com.example.ui.components.MiniPlayerBar
 import com.example.ui.components.PlaylistPickerDialog
+import com.example.ui.components.RenameTrackDialog
 import com.example.ui.components.TrackDetailsDialog
 import com.example.ui.components.TrackOptionsBottomSheet
 import com.example.ui.screens.ArtistsAlbumsScreen
@@ -178,6 +179,7 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
     var menuTrack by remember { mutableStateOf<Track?>(null) }
     var detailsTrack by remember { mutableStateOf<Track?>(null) }
     var playlistPickerTrack by remember { mutableStateOf<Track?>(null) }
+    var renameTrack by remember { mutableStateOf<Track?>(null) }
 
     BackHandler(enabled = showFullPlayer && menuTrack == null) {
         showFullPlayer = false
@@ -439,6 +441,7 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                             onAddToQueue = { viewModel.addToQueue(t); menuTrack = null },
                             onToggleFavorite = { viewModel.toggleFavorite(t.id); menuTrack = null },
                             onAddToPlaylist = { playlistPickerTrack = t; menuTrack = null },
+                            onRename = { renameTrack = t; menuTrack = null },
                             onViewLyrics = {
                                 if (currentTrack?.id != t.id) viewModel.playTrack(t)
                                 showFullPlayer = true
@@ -465,6 +468,19 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                     strings = strings,
                     accentColor = accentColor,
                     onDismiss = { detailsTrack = null }
+                )
+            }
+
+            renameTrack?.let { t ->
+                RenameTrackDialog(
+                    track = t,
+                    strings = strings,
+                    accentColor = accentColor,
+                    onConfirm = { newTitle ->
+                        viewModel.renameTrack(t, newTitle)
+                        renameTrack = null
+                    },
+                    onDismiss = { renameTrack = null }
                 )
             }
 
@@ -579,14 +595,17 @@ private fun SettingsTabContainer(
     val activeTracks by viewModel.activeTracks.collectAsState()
     val excludedTracks by viewModel.excludedTracks.collectAsState()
     val folderItems by viewModel.folderItems.collectAsState()
+    val artworkFetchProgress by viewModel.artworkFetchProgress.collectAsState()
 
     SettingsScreen(
         strings = strings,
         settings = settings,
         activeCount = activeTracks.size,
         excludedCount = excludedTracks.size,
+        activeTracks = activeTracks,
         excludedTracks = excludedTracks,
         folderItems = folderItems,
+        artworkFetchProgress = artworkFetchProgress,
         hasNotificationPermission = hasNotificationPermission,
         accentColor = accentColor,
         onLanguageChange = { viewModel.updateLanguage(it) },
@@ -597,6 +616,7 @@ private fun SettingsTabContainer(
         onRemoveKeyword = { viewModel.removeCustomKeyword(it) },
         onToggleExcludedFolder = { viewModel.toggleExcludedFolder(it) },
         onSetAllFoldersExcluded = { paths, ex -> viewModel.setAllFoldersExcluded(paths, ex) },
+        onFetchTracksArtwork = { ids -> viewModel.fetchArtworkForTracks(ids) },
         onDynamicAccentChange = { viewModel.updateDynamicAccent(it) },
         onArtworkBgModeChange = { viewModel.updateArtworkBgMode(it) },
         onGlassBlurChange = { viewModel.updateGlassBlur(it) },

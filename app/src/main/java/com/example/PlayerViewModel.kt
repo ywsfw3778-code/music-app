@@ -77,20 +77,28 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val manualRestoredIds = settingsStore.manualRestoredIdsFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
+    val customTrackTitles: StateFlow<Map<String, String>> = settingsStore.customTrackTitlesFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
     private val _allScannedTracks = MutableStateFlow<List<Track>>(emptyList())
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
+
+    private val _artworkFetchProgress = MutableStateFlow<Pair<Int, Int>?>(null)
+    val artworkFetchProgress: StateFlow<Pair<Int, Int>?> = _artworkFetchProgress.asStateFlow()
 
     private val classifiedTracks: StateFlow<List<Track>> = combine(
         _allScannedTracks,
         settings,
         manualExcludedIds,
-        manualRestoredIds
-    ) { all, cfg, exIds, resIds ->
+        manualRestoredIds,
+        customTrackTitles
+    ) { all, cfg, exIds, resIds, customTitles ->
         all.map { track ->
+            val effectiveTitle = customTitles[track.id] ?: track.title
             val reason = audioRepo.computeExclusionReason(
                 id = track.id,
-                title = track.title,
+                title = effectiveTitle,
                 fileName = track.fileName,
                 folderPath = track.folderPath,
                 durationSec = track.durationSec,
@@ -99,6 +107,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 manualRestoredIds = resIds
             )
             track.copy(
+                title = effectiveTitle,
                 isExcluded = reason != ExclusionReason.NONE,
                 exclusionReason = reason
             )
@@ -869,6 +878,115 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             settingsStore.setManualExclusion(track.id, excluded = false)
             showToast(s.toastRestored)
+        }
+    }
+
+    fun renameTrack(track: Track, newTitle: String) {
+        val clean = newTitle.trim()
+        if (clean.isBlank() || clean == track.title) return
+        val s = StringsProvider.forLang(settings.value.language)
+        viewModelScope.launch {
+            settingsStore.saveCustomTrackTitle(track.id, clean)
+            if (_currentTrack.value?.id == track.id) {
+                _currentTrack.value = _currentTrack.value?.copy(title = clean)
+            }
+            if (_queue.value.any { it.id == track.id }) {
+                _queue.value = _queue.value.map { if (it.id == track.id) it.copy(title = clean) else it }
+            }
+            val ctrl = mediaController
+            if (ctrl != null) {
+                for (idx in 0 until ctrl.mediaItemCount) {
+                    val item = ctrl.getMediaItemAt(idx)
+                    if (item.mediaId == track.id) {
+                        val updatedMeta = item.mediaMetadata.buildUpon()
+                            .setTitle(clean)
+                            .setDisplayTitle(clean)
+                            .build()
+                        ctrl.replaceMediaItem(idx, item.buildUpon().setMediaMetadata(updatedMeta).build())
+                    }
+                }
+            }
+            showToast(s.toastTrackRenamed)
+        }
+    }
+
+    fun fetchArtworkForTracks(trackIds: Set<String>) {
+        if (trackIds.isEmpty() || _artworkFetchProgress.value != null) return
+        val targets = classifiedTracks.value.filter { trackIds.contains(it.id) }
+        if (targets.isEmpty()) return
+
+        viewModelScope.launch {
+            val ctx = getApplication<Application>()
+            val lang = settings.value.language
+            val artCacheDir = File(ctx.filesDir, "track_art_v2").apply { mkdirs() }
+            val updatedUris = LinkedHashMap<String, String>()
+            var successCount = 0
+            val total = targets.size
+            _artworkFetchProgress.value = 0 to total
+
+            try {
+                withContext(Dispatchers.IO) {
+                    targets.forEachIndexed { index, track ->
+                        val cachedFile = File(artCacheDir, "track_${track.id}.jpg")
+                        File(artCacheDir, "track_${track.id}.none").delete()
+                        File(artCacheDir, "track_${track.id}.online_miss").delete()
+
+                        val ok = OnlineMetadataResolver.resolveTrackArtOnline(
+                            context = ctx,
+                            trackId = track.id,
+                            title = track.title,
+                            artist = track.artist,
+                            targetFile = cachedFile,
+                            forceRefresh = true
+                        )
+                        if (ok && cachedFile.exists() && cachedFile.length() > 0L) {
+                            AudioRepository.invalidateTrackArtCache(track.id)
+                            val uriStr = Uri.fromFile(cachedFile)
+                                .buildUpon()
+                                .appendQueryParameter("t", System.currentTimeMillis().toString())
+                                .build()
+                                .toString()
+                            updatedUris[track.id] = uriStr
+                            successCount++
+                        }
+                        _artworkFetchProgress.value = (index + 1) to total
+                    }
+                }
+
+                if (updatedUris.isNotEmpty()) {
+                    val refreshed = _allScannedTracks.value.map { t ->
+                        val newUri = updatedUris[t.id]
+                        if (newUri != null) t.copy(artUri = newUri) else t
+                    }
+                    _allScannedTracks.value = refreshed
+                    withContext(Dispatchers.IO) {
+                        audioRepo.saveTracksToCache(refreshed)
+                    }
+
+                    val active = _currentTrack.value
+                    if (active != null && updatedUris.containsKey(active.id)) {
+                        val updatedActive = active.copy(artUri = updatedUris[active.id])
+                        setActiveTrackVisuals(updatedActive)
+                    }
+                    if (_queue.value.any { updatedUris.containsKey(it.id) }) {
+                        _queue.value = _queue.value.map { t ->
+                            val newUri = updatedUris[t.id]
+                            if (newUri != null) t.copy(artUri = newUri) else t
+                        }
+                    }
+                }
+
+                val msg = if (lang == AppLanguage.AR) {
+                    if (successCount > 0) "تم جلب $successCount من أصل $total صورة بنجاح"
+                    else "لم يتم العثور على صور مطابقة بالأسماء الحالية"
+                } else {
+                    if (successCount > 0) "Fetched $successCount of $total covers"
+                    else "No matching covers found for selected songs"
+                }
+                showToast(msg)
+            } finally {
+                _artworkFetchProgress.value = null
+            }
         }
     }
 

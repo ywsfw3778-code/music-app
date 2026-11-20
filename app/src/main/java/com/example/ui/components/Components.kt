@@ -40,6 +40,7 @@ import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Info
@@ -51,10 +52,14 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -647,6 +652,7 @@ fun TrackOptionsBottomSheet(
     onAddToQueue: () -> Unit,
     onToggleFavorite: () -> Unit,
     onAddToPlaylist: () -> Unit,
+    onRename: () -> Unit,
     onViewLyrics: () -> Unit,
     onShowDetails: () -> Unit,
     onExclude: () -> Unit
@@ -759,12 +765,71 @@ fun TrackOptionsBottomSheet(
                 onToggleFavorite
             )
             SheetActionRow(Icons.AutoMirrored.Rounded.PlaylistAdd, strings.addToPlaylist, accentColor, onAddToPlaylist)
+            SheetActionRow(Icons.Rounded.Edit, strings.renameTrackAction, accentColor, onRename)
             SheetActionRow(Icons.Rounded.Lyrics, strings.viewLyrics, accentColor, onViewLyrics)
             SheetActionRow(Icons.Rounded.Info, strings.trackDetails, accentColor, onShowDetails)
             SheetActionRow(Icons.Rounded.Block, strings.deleteFromLibrary, NocturneColors.Danger, onExclude)
             Spacer(Modifier.height(8.dp))
         }
     }
+}
+
+@Composable
+fun RenameTrackDialog(
+    track: Track,
+    strings: AppStrings,
+    accentColor: Color,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var titleText by androidx.compose.runtime.remember(track.id) {
+        androidx.compose.runtime.mutableStateOf(track.title)
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = NocturneColors.MatteElevatedBg,
+        title = {
+            Text(strings.renameTrackTitle, color = Color.White, fontWeight = FontWeight.Bold)
+        },
+        text = {
+            OutlinedTextField(
+                value = titleText,
+                onValueChange = { titleText = it },
+                singleLine = true,
+                placeholder = {
+                    Text(strings.renameTrackPlaceholder, color = NocturneColors.TextMuted)
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedBorderColor = accentColor,
+                    unfocusedBorderColor = Color.White.copy(alpha = 0.22f),
+                    cursorColor = accentColor
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("rename_track_input")
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(titleText) },
+                enabled = titleText.trim().isNotBlank(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = accentColor,
+                    contentColor = Color.Black
+                ),
+                modifier = Modifier.testTag("rename_track_confirm")
+            ) {
+                Text(strings.saveAction, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(strings.cancel, color = NocturneColors.TextSecondary)
+            }
+        }
+    )
 }
 
 @Composable

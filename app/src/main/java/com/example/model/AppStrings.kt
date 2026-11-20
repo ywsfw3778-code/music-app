@@ -153,7 +153,24 @@ data class AppStrings(
     val toastRestored: String,
     val toastExcluded: String,
     val toastLyricsApplied: String,
-    val toastLibraryCleared: String
+    val toastLibraryCleared: String,
+    val renameTrackAction: String,
+    val renameTrackTitle: String,
+    val renameTrackPlaceholder: String,
+    val saveAction: String,
+    val toastTrackRenamed: String,
+    val onlineArtSection: String,
+    val onlineArtDesc: String,
+    val onlineArtOpenAction: String,
+    val onlineArtPageTitle: String,
+    val onlineArtPageSubtitle: String,
+    val onlineArtFilterMissing: String,
+    val onlineArtFilterAll: String,
+    val onlineArtHasCoverBadge: String,
+    val onlineArtNoCoverBadge: String,
+    val onlineArtFetchButton: String,
+    val onlineArtFetchingProgress: String,
+    val onlineArtEmptyMissing: String
 )
 
 object StringsProvider {
@@ -310,7 +327,24 @@ object StringsProvider {
         toastRestored = "تمت استعادة الأغنية إلى المكتبة",
         toastExcluded = "تم نقل الملف إلى قائمة المستبعدات",
         toastLyricsApplied = "تم تطبيق الكلمات المتزامنة بنجاح",
-        toastLibraryCleared = "تم مسح البيانات المحفوظة"
+        toastLibraryCleared = "تم مسح البيانات المحفوظة",
+        renameTrackAction = "تغيير اسم الأغنية",
+        renameTrackTitle = "تعديل اسم الأغنية",
+        renameTrackPlaceholder = "اكتب اسم الأغنية...",
+        saveAction = "حفظ",
+        toastTrackRenamed = "تم تعديل اسم الأغنية",
+        onlineArtSection = "جلب صور الأغاني من الإنترنت",
+        onlineArtDesc = "اختر أغاني معينة لجلب أغلفتها أونلاين اعتماداً على اسمها الحالي",
+        onlineArtOpenAction = "اختيار الأغاني وجلب الصور",
+        onlineArtPageTitle = "جلب الصور بالاسم",
+        onlineArtPageSubtitle = "حدد الأغاني لتحميل غلافها من الإنترنت",
+        onlineArtFilterMissing = "بدون صورة",
+        onlineArtFilterAll = "كل الأغاني",
+        onlineArtHasCoverBadge = "لها صورة",
+        onlineArtNoCoverBadge = "بدون صورة",
+        onlineArtFetchButton = "جلب الصور للمحدد",
+        onlineArtFetchingProgress = "جاري جلب الصور...",
+        onlineArtEmptyMissing = "كل الأغاني في مكتبتك لديها أغلفة بالفعل"
     )
 
     val en = AppStrings(
@@ -466,7 +500,24 @@ object StringsProvider {
         toastRestored = "Restored to library",
         toastExcluded = "Moved to excluded",
         toastLyricsApplied = "Lyrics applied",
-        toastLibraryCleared = "Saved data cleared"
+        toastLibraryCleared = "Saved data cleared",
+        renameTrackAction = "Rename Song",
+        renameTrackTitle = "Rename Song",
+        renameTrackPlaceholder = "Enter song title...",
+        saveAction = "Save",
+        toastTrackRenamed = "Song renamed",
+        onlineArtSection = "Online Song Artwork",
+        onlineArtDesc = "Pick specific songs to fetch cover art online using their title",
+        onlineArtOpenAction = "Select Songs & Fetch Covers",
+        onlineArtPageTitle = "Fetch Covers by Name",
+        onlineArtPageSubtitle = "Select songs to download artwork from the internet",
+        onlineArtFilterMissing = "No Cover",
+        onlineArtFilterAll = "All Songs",
+        onlineArtHasCoverBadge = "Has Cover",
+        onlineArtNoCoverBadge = "No Cover",
+        onlineArtFetchButton = "Fetch Selected Covers",
+        onlineArtFetchingProgress = "Fetching covers...",
+        onlineArtEmptyMissing = "All songs in your library already have covers"
     )
 
     fun forLang(lang: AppLanguage): AppStrings = if (lang == AppLanguage.AR) ar else en

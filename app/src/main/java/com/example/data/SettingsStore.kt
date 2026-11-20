@@ -40,6 +40,7 @@ class SettingsStore(private val context: Context) {
         val EXCLUDED_FOLDERS = stringSetPreferencesKey("excluded_folders")
         val PLAYLISTS_JSON = stringPreferencesKey("playlists_json")
         val SAVED_LYRICS_JSON = stringPreferencesKey("saved_lyrics_json")
+        val CUSTOM_TRACK_TITLES_JSON = stringPreferencesKey("custom_track_titles_json")
     }
 
     val settingsFlow: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -73,6 +74,10 @@ class SettingsStore(private val context: Context) {
 
     val playlistsFlow: Flow<List<Playlist>> = context.dataStore.data.map { prefs ->
         parsePlaylists(prefs[Keys.PLAYLISTS_JSON].orEmpty())
+    }
+
+    val customTrackTitlesFlow: Flow<Map<String, String>> = context.dataStore.data.map { prefs ->
+        parseStringMap(prefs[Keys.CUSTOM_TRACK_TITLES_JSON].orEmpty())
     }
 
     suspend fun updateSettings(transform: (AppSettings) -> AppSettings) {
@@ -192,6 +197,17 @@ class SettingsStore(private val context: Context) {
         }
     }
 
+    suspend fun saveCustomTrackTitle(trackId: String, title: String) {
+        val clean = title.trim()
+        if (clean.isBlank()) return
+        context.dataStore.edit { prefs ->
+            val raw = prefs[Keys.CUSTOM_TRACK_TITLES_JSON].orEmpty()
+            val root = runCatching { if (raw.isBlank()) JSONObject() else JSONObject(raw) }.getOrDefault(JSONObject())
+            root.put(trackId, clean)
+            prefs[Keys.CUSTOM_TRACK_TITLES_JSON] = root.toString()
+        }
+    }
+
     suspend fun clearAll() {
         context.dataStore.edit { it.clear() }
     }
@@ -226,5 +242,20 @@ class SettingsStore(private val context: Context) {
                 )
             }
         }.getOrDefault(emptyList())
+    }
+
+    private fun parseStringMap(raw: String): Map<String, String> {
+        if (raw.isBlank()) return emptyMap()
+        return runCatching {
+            val obj = JSONObject(raw)
+            val map = LinkedHashMap<String, String>()
+            val keys = obj.keys()
+            while (keys.hasNext()) {
+                val k = keys.next()
+                val v = obj.optString(k, "").trim()
+                if (v.isNotBlank()) map[k] = v
+            }
+            map
+        }.getOrDefault(emptyMap())
     }
 }

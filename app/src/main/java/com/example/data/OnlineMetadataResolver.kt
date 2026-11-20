@@ -149,31 +149,51 @@ object OnlineMetadataResolver {
         trackId: String,
         title: String,
         artist: String,
-        targetFile: File
+        targetFile: File,
+        forceRefresh: Boolean = false
     ): Boolean = withContext(Dispatchers.IO) {
-        if (targetFile.exists() && targetFile.length() > 0L) return@withContext true
         val onlineMissMarker = File(targetFile.parentFile, "track_${trackId}.online_miss")
-        if (onlineMissMarker.exists()) {
-            val ageMs = System.currentTimeMillis() - onlineMissMarker.lastModified()
-            if (ageMs < 30 * 60 * 1000L) return@withContext false
-            onlineMissMarker.delete()
+        if (forceRefresh) {
+            runCatching { onlineMissMarker.delete() }
+        } else {
+            if (targetFile.exists() && targetFile.length() > 0L) return@withContext true
+            if (onlineMissMarker.exists()) {
+                val ageMs = System.currentTimeMillis() - onlineMissMarker.lastModified()
+                if (ageMs < 30 * 60 * 1000L) return@withContext false
+                onlineMissMarker.delete()
+            }
         }
-        val cleanTitle = ArtistNormalizer.cleanTrackTitle(title, artist)
+        val cleanTitle = ArtistNormalizer.cleanTrackTitle(title, artist).ifBlank { title.trim() }
         val cleanArtist = ArtistNormalizer.normalizeArtist(artist)
+        val hasKnownArtist = cleanArtist.isNotBlank() &&
+            !cleanArtist.equals("Unknown Artist", ignoreCase = true) &&
+            !cleanArtist.equals("<unknown>", ignoreCase = true) &&
+            cleanArtist != "فنان غير معروف"
+        val arabicArtist = if (hasKnownArtist) ArtistNormalizer.getArtistArabicName(cleanArtist) else null
 
-        val queries = mutableListOf<String>()
-        queries.add("$cleanArtist $cleanTitle".trim())
+        val queries = linkedSetOf<String>()
+        if (hasKnownArtist) {
+            queries.add("$cleanArtist $cleanTitle".trim())
+            if (arabicArtist != null) {
+                queries.add("$arabicArtist $cleanTitle".trim())
+            }
+        }
+        queries.add(cleanTitle)
         if (cleanTitle.contains("|")) {
             val p1 = cleanTitle.substringBefore("|").trim()
             val p2 = cleanTitle.substringAfter("|").trim()
-            if (p1.isNotBlank()) queries.add("$cleanArtist $p1")
-            if (p2.isNotBlank()) queries.add("$cleanArtist $p2")
+            if (p1.isNotBlank()) queries.add(if (hasKnownArtist) "$cleanArtist $p1" else p1)
+            if (p2.isNotBlank()) queries.add(if (hasKnownArtist) "$cleanArtist $p2" else p2)
+            if (p1.isNotBlank()) queries.add(p1)
+            if (p2.isNotBlank()) queries.add(p2)
         }
         if (cleanTitle.contains("-")) {
             val p2 = cleanTitle.substringAfter("-").trim()
-            if (p2.isNotBlank()) queries.add("$cleanArtist $p2")
+            if (p2.isNotBlank()) {
+                if (hasKnownArtist) queries.add("$cleanArtist $p2")
+                queries.add(p2)
+            }
         }
-        queries.add(cleanTitle)
 
         for (q in queries) {
             val encoded = runCatching { URLEncoder.encode(q.trim(), "UTF-8") }.getOrNull() ?: continue
