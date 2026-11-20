@@ -11,8 +11,13 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.example.model.AppLanguage
 import com.example.model.AppSettings
 import com.example.model.ArtworkBgMode
+import com.example.model.LibrarySubTab
 import com.example.model.LyricsData
+import com.example.model.MainTab
 import com.example.model.Playlist
+import com.example.model.RepeatMode
+import com.example.model.SavedSession
+import com.example.model.SortOption
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -41,6 +46,18 @@ class SettingsStore(private val context: Context) {
         val PLAYLISTS_JSON = stringPreferencesKey("playlists_json")
         val SAVED_LYRICS_JSON = stringPreferencesKey("saved_lyrics_json")
         val CUSTOM_TRACK_TITLES_JSON = stringPreferencesKey("custom_track_titles_json")
+        val LAST_TRACK_ID = stringPreferencesKey("last_track_id")
+        val LAST_POSITION_MS = longPreferencesKey("last_position_ms")
+        val LAST_QUEUE_IDS_JSON = stringPreferencesKey("last_queue_ids_json")
+        val LAST_SHUFFLE = booleanPreferencesKey("last_shuffle")
+        val LAST_REPEAT_MODE = stringPreferencesKey("last_repeat_mode")
+        val LAST_MAIN_TAB = stringPreferencesKey("last_main_tab")
+        val LAST_LIBRARY_SUBTAB = stringPreferencesKey("last_library_subtab")
+        val LAST_SORT_OPTION = stringPreferencesKey("last_sort_option")
+        val LAST_SHOW_FULL_PLAYER = booleanPreferencesKey("last_show_full_player")
+        val LAST_FULL_PLAYER_PAGE = intPreferencesKey("last_full_player_page")
+        val LAST_SCROLL_INDEX = intPreferencesKey("last_scroll_index")
+        val LAST_SCROLL_OFFSET = intPreferencesKey("last_scroll_offset")
     }
 
     val settingsFlow: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -205,6 +222,109 @@ class SettingsStore(private val context: Context) {
             val root = runCatching { if (raw.isBlank()) JSONObject() else JSONObject(raw) }.getOrDefault(JSONObject())
             root.put(trackId, clean)
             prefs[Keys.CUSTOM_TRACK_TITLES_JSON] = root.toString()
+        }
+    }
+
+    suspend fun getSavedSession(): SavedSession {
+        val prefs = context.dataStore.data.first()
+        val queueIds = runCatching {
+            val raw = prefs[Keys.LAST_QUEUE_IDS_JSON].orEmpty()
+            if (raw.isBlank()) emptyList() else {
+                val arr = JSONArray(raw)
+                List(arr.length()) { i -> arr.getString(i) }
+            }
+        }.getOrDefault(emptyList())
+
+        val repeat = runCatching {
+            RepeatMode.valueOf(prefs[Keys.LAST_REPEAT_MODE] ?: RepeatMode.ALL.name)
+        }.getOrDefault(RepeatMode.ALL)
+
+        val mainTab = runCatching {
+            MainTab.valueOf(prefs[Keys.LAST_MAIN_TAB] ?: MainTab.LIBRARY.name)
+        }.getOrDefault(MainTab.LIBRARY)
+
+        val subTab = runCatching {
+            LibrarySubTab.valueOf(prefs[Keys.LAST_LIBRARY_SUBTAB] ?: LibrarySubTab.ALL_SONGS.name)
+        }.getOrDefault(LibrarySubTab.ALL_SONGS)
+
+        val sortOpt = runCatching {
+            SortOption.valueOf(prefs[Keys.LAST_SORT_OPTION] ?: SortOption.RECENT.name)
+        }.getOrDefault(SortOption.RECENT)
+
+        return SavedSession(
+            lastTrackId = prefs[Keys.LAST_TRACK_ID]?.takeIf { it.isNotBlank() },
+            lastPositionMs = (prefs[Keys.LAST_POSITION_MS] ?: 0L).coerceAtLeast(0L),
+            lastQueueIds = queueIds,
+            shuffleEnabled = prefs[Keys.LAST_SHUFFLE] ?: false,
+            repeatMode = repeat,
+            lastMainTab = mainTab,
+            lastLibrarySubTab = subTab,
+            lastSortOption = sortOpt,
+            lastShowFullPlayer = prefs[Keys.LAST_SHOW_FULL_PLAYER] ?: false,
+            lastFullPlayerPage = (prefs[Keys.LAST_FULL_PLAYER_PAGE] ?: 0).coerceIn(0, 2),
+            lastScrollIndex = (prefs[Keys.LAST_SCROLL_INDEX] ?: 0).coerceAtLeast(0),
+            lastScrollOffset = (prefs[Keys.LAST_SCROLL_OFFSET] ?: 0).coerceAtLeast(0)
+        )
+    }
+
+    suspend fun savePlaybackSession(
+        trackId: String?,
+        positionMs: Long,
+        queueIds: List<String>,
+        shuffleEnabled: Boolean,
+        repeatMode: RepeatMode
+    ) {
+        context.dataStore.edit { prefs ->
+            if (trackId.isNullOrBlank()) {
+                prefs.remove(Keys.LAST_TRACK_ID)
+                prefs[Keys.LAST_POSITION_MS] = 0L
+                prefs.remove(Keys.LAST_QUEUE_IDS_JSON)
+            } else {
+                prefs[Keys.LAST_TRACK_ID] = trackId
+                prefs[Keys.LAST_POSITION_MS] = positionMs.coerceAtLeast(0L)
+                // Cap serialized queue IDs to avoid bloated DataStore entry on massive libraries
+                val limited = if (queueIds.size > 1000) queueIds.take(1000) else queueIds
+                prefs[Keys.LAST_QUEUE_IDS_JSON] = JSONArray(limited).toString()
+            }
+            prefs[Keys.LAST_SHUFFLE] = shuffleEnabled
+            prefs[Keys.LAST_REPEAT_MODE] = repeatMode.name
+        }
+    }
+
+    suspend fun savePositionOnly(positionMs: Long) {
+        context.dataStore.edit { prefs ->
+            if (!prefs[Keys.LAST_TRACK_ID].isNullOrBlank()) {
+                prefs[Keys.LAST_POSITION_MS] = positionMs.coerceAtLeast(0L)
+            }
+        }
+    }
+
+    suspend fun clearPlaybackSession() {
+        context.dataStore.edit { prefs ->
+            prefs.remove(Keys.LAST_TRACK_ID)
+            prefs[Keys.LAST_POSITION_MS] = 0L
+            prefs.remove(Keys.LAST_QUEUE_IDS_JSON)
+            prefs[Keys.LAST_SHOW_FULL_PLAYER] = false
+        }
+    }
+
+    suspend fun saveUiSession(
+        mainTab: MainTab? = null,
+        librarySubTab: LibrarySubTab? = null,
+        sortOption: SortOption? = null,
+        showFullPlayer: Boolean? = null,
+        fullPlayerPage: Int? = null,
+        scrollIndex: Int? = null,
+        scrollOffset: Int? = null
+    ) {
+        context.dataStore.edit { prefs ->
+            mainTab?.let { prefs[Keys.LAST_MAIN_TAB] = it.name }
+            librarySubTab?.let { prefs[Keys.LAST_LIBRARY_SUBTAB] = it.name }
+            sortOption?.let { prefs[Keys.LAST_SORT_OPTION] = it.name }
+            showFullPlayer?.let { prefs[Keys.LAST_SHOW_FULL_PLAYER] = it }
+            fullPlayerPage?.let { prefs[Keys.LAST_FULL_PLAYER_PAGE] = it.coerceIn(0, 2) }
+            scrollIndex?.let { prefs[Keys.LAST_SCROLL_INDEX] = it.coerceAtLeast(0) }
+            scrollOffset?.let { prefs[Keys.LAST_SCROLL_OFFSET] = it.coerceAtLeast(0) }
         }
     }
 

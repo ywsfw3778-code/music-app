@@ -73,11 +73,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -464,6 +467,7 @@ fun MiniPlayerBar(
     onTogglePlayPause: () -> Unit,
     onNext: () -> Unit,
     onClose: () -> Unit,
+    onArtworkPositioned: ((Offset) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -483,7 +487,16 @@ fun MiniPlayerBar(
                 artUri = track.artUri,
                 size = 44.dp,
                 cornerRadius = 12.dp,
-                accentColor = accentColor
+                accentColor = accentColor,
+                modifier = if (onArtworkPositioned != null) {
+                    Modifier.onGloballyPositioned { coords ->
+                        if (coords.isAttached) {
+                            val pos = coords.positionInRoot()
+                            val sz = coords.size
+                            onArtworkPositioned(Offset(pos.x + sz.width / 2f, pos.y + sz.height / 2f))
+                        }
+                    }
+                } else Modifier
             )
 
             Spacer(Modifier.width(10.dp))

@@ -137,19 +137,39 @@ fun LibraryScreen(
     onDeletePlaylist: (String) -> Unit,
     onRemoveFromPlaylist: (String, String) -> Unit,
     bottomPadding: PaddingValues,
-    isPageActive: Boolean = true
+    isPageActive: Boolean = true,
+    initialSubTab: LibrarySubTab = LibrarySubTab.ALL_SONGS,
+    initialSortOption: SortOption = SortOption.RECENT,
+    initialScrollIndex: Int = 0,
+    initialScrollOffset: Int = 0,
+    isLibraryReady: Boolean = true,
+    onSubTabChange: (LibrarySubTab) -> Unit = {},
+    onSortOptionChange: (SortOption) -> Unit = {},
+    onScrollChanged: (Int, Int) -> Unit = { _, _ -> }
 ) {
-    var subTab by remember { mutableStateOf(LibrarySubTab.ALL_SONGS) }
-    val allSongsListState = rememberLazyListState()
+    var subTab by remember { mutableStateOf(initialSubTab) }
+    val allSongsListState = rememberLazyListState(
+        initialFirstVisibleItemIndex = initialScrollIndex,
+        initialFirstVisibleItemScrollOffset = initialScrollOffset
+    )
     val favListState = rememberLazyListState()
     var searchQuery by remember { mutableStateOf("") }
     var isSearchOpen by remember { mutableStateOf(false) }
-    var sortOption by remember { mutableStateOf(SortOption.RECENT) }
+    var sortOption by remember { mutableStateOf(initialSortOption) }
     var selectedPlaylistId by remember { mutableStateOf<String?>(null) }
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     var editingPlaylist by remember { mutableStateOf<Playlist?>(null) }
     var addingToPlaylist by remember { mutableStateOf<Playlist?>(null) }
     val searchFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(allSongsListState.isScrollInProgress) {
+        if (!allSongsListState.isScrollInProgress) {
+            onScrollChanged(
+                allSongsListState.firstVisibleItemIndex,
+                allSongsListState.firstVisibleItemScrollOffset
+            )
+        }
+    }
 
     LaunchedEffect(isSearchOpen) {
         if (isSearchOpen) {
@@ -166,6 +186,7 @@ fun LibraryScreen(
     }
     BackHandler(enabled = isPageActive && selectedPlaylistId == null && !isSearchOpen && subTab != LibrarySubTab.ALL_SONGS) {
         subTab = LibrarySubTab.ALL_SONGS
+        onSubTabChange(LibrarySubTab.ALL_SONGS)
     }
 
     val filteredTracks = remember(tracks, searchQuery, sortOption) {
@@ -238,15 +259,17 @@ fun LibraryScreen(
                     when (currentTab) {
                         LibrarySubTab.ALL_SONGS -> {
                             if (tracks.isEmpty()) {
-                                Box(Modifier.padding(top = headerContentTop, start = 16.dp, end = 16.dp)) {
-                                    EmptyStateCard(
-                                        title = strings.emptyTitle,
-                                        description = strings.emptyDescription,
-                                        note = strings.emptyFilterNote,
-                                        buttonText = strings.importFiles,
-                                        accentColor = accentColor,
-                                        onAction = onScan
-                                    )
+                                if (isLibraryReady) {
+                                    Box(Modifier.padding(top = headerContentTop, start = 16.dp, end = 16.dp)) {
+                                        EmptyStateCard(
+                                            title = strings.emptyTitle,
+                                            description = strings.emptyDescription,
+                                            note = strings.emptyFilterNote,
+                                            buttonText = strings.importFiles,
+                                            accentColor = accentColor,
+                                            onAction = onScan
+                                        )
+                                    }
                                 }
                             } else if (filteredTracks.isEmpty()) {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -550,7 +573,9 @@ fun LibraryScreen(
                                 .testTag("library_sort_button")
                                 .clickable {
                                     val order = listOf(SortOption.RECENT, SortOption.TITLE, SortOption.ARTIST, SortOption.DURATION)
-                                    sortOption = order[(order.indexOf(sortOption) + 1) % order.size]
+                                    val next = order[(order.indexOf(sortOption) + 1) % order.size]
+                                    sortOption = next
+                                    onSortOptionChange(next)
                                 }
                                 .padding(horizontal = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -643,6 +668,7 @@ fun LibraryScreen(
                                 .testTag("library_subtab_${tab.name.lowercase()}")
                                 .clickable {
                                     subTab = tab
+                                    onSubTabChange(tab)
                                     if (tab != LibrarySubTab.PLAYLISTS) selectedPlaylistId = null
                                 }
                                 .padding(vertical = 8.dp),

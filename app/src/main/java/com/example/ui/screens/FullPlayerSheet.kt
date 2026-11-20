@@ -164,9 +164,11 @@ fun FullPlayerSheet(
     onApplyLrcFile: (String) -> Unit,
     onAdjustLyricOffset: (Long) -> Unit,
     onSetSleepTimer: (Int) -> Unit,
-    onMoreClick: () -> Unit
+    onMoreClick: () -> Unit,
+    initialPage: Int = 0,
+    onPageChange: (Int) -> Unit = {}
 ) {
-    var activePage by remember { mutableIntStateOf(0) } // 0=Artwork, 1=Lyrics, 2=Queue
+    var activePage by remember { mutableIntStateOf(initialPage.coerceIn(0, 2)) } // 0=Artwork, 1=Lyrics, 2=Queue
     var showManualSearch by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
@@ -274,7 +276,10 @@ fun FullPlayerSheet(
                                     .clip(RoundedCornerShape(50))
                                     .background(if (selected) NocturneColors.WaterDropPillBg else Color.Transparent)
                                     .testTag("full_player_tab_$idx")
-                                    .clickable { activePage = idx }
+                                    .clickable {
+                                        activePage = idx
+                                        onPageChange(idx)
+                                    }
                                     .padding(horizontal = 14.dp, vertical = 7.dp),
                                 contentAlignment = Alignment.Center
                             ) {

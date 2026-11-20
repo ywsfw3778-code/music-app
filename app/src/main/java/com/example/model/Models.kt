@@ -112,3 +112,20 @@ data class AppSettings(
     val glassBlurEnabled: Boolean = true,
     val lyricOffsetMs: Long = 0L
 )
+
+@Immutable
+data class SavedSession(
+    val lastTrackId: String? = null,
+    val lastPositionMs: Long = 0L,
+    val lastQueueIds: List<String> = emptyList(),
+    val shuffleEnabled: Boolean = false,
+    val repeatMode: RepeatMode = RepeatMode.ALL,
+    val lastMainTab: MainTab = MainTab.LIBRARY,
+    val lastLibrarySubTab: LibrarySubTab = LibrarySubTab.ALL_SONGS,
+    val lastSortOption: SortOption = SortOption.RECENT,
+    val lastShowFullPlayer: Boolean = false,
+    val lastFullPlayerPage: Int = 0,
+    val lastScrollIndex: Int = 0,
+    val lastScrollOffset: Int = 0
+)
+

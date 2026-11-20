@@ -149,7 +149,8 @@ class AudioRepository(private val context: Context) {
     suspend fun scanDeviceTracks(
         settings: AppSettings,
         manualExcludedIds: Set<String>,
-        manualRestoredIds: Set<String>
+        manualRestoredIds: Set<String>,
+        existingTracksById: Map<String, Track> = emptyMap()
     ): List<Track> = withContext(Dispatchers.IO) {
         val tracks = mutableListOf<Track>()
         val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -232,7 +233,12 @@ class AudioRepository(private val context: Context) {
                 val safeKey = "${artist}_${album.trim()}".replace(Regex("[^a-zA-Z0-9_\\-\\u0600-\\u06FF]"), "_")
                 val cachedAlbumArt = File(artCacheDir, "album_${safeKey}.jpg")
                 val isValidAlbum = !ArtistNormalizer.isFakeOrJunkAlbum(album, artist, 2, title, fileName)
+                val existingArt = existingTracksById[id]?.artUri?.takeIf { u ->
+                    u.isNotBlank() && !u.startsWith("track_art://") &&
+                        (!u.startsWith("file://") || File(Uri.parse(u).path ?: "").let { f -> f.exists() && f.length() > 0L })
+                }
                 val artUri = when {
+                    existingArt != null -> existingArt
                     cachedArt.exists() && cachedArt.length() > 0L -> Uri.fromFile(cachedArt).toString()
                     noArtMarker.exists() && isValidAlbum && cachedAlbumArt.exists() && cachedAlbumArt.length() > 0L ->
                         Uri.fromFile(cachedAlbumArt).toString()
@@ -313,13 +319,17 @@ class AudioRepository(private val context: Context) {
                 val cachedAlbumArt = File(artCacheDir, "album_${safeKey}.jpg")
                 val isValidAlbum = !ArtistNormalizer.isFakeOrJunkAlbum(rawAlbum, artist, 2, title, fileName)
                 var art = obj.optString("art").takeIf { !it.isNullOrBlank() }
-                if (cachedFile.exists() && cachedFile.length() > 0L) {
+                val existingFileValid = art != null && art.startsWith("file://") &&
+                    File(Uri.parse(art).path ?: "").let { it.exists() && it.length() > 0L }
+                if (existingFileValid) {
+                    // Keep exact URI (including any cache-busting ?t= query parameter)
+                } else if (cachedFile.exists() && cachedFile.length() > 0L) {
                     art = Uri.fromFile(cachedFile).toString()
                 } else if (art == null || art.startsWith("track_art://")) {
                     if (noArtMarker.exists() && isValidAlbum && cachedAlbumArt.exists() && cachedAlbumArt.length() > 0L) {
                         art = Uri.fromFile(cachedAlbumArt).toString()
                     }
-                } else if (!File(Uri.parse(art).path ?: "").exists()) {
+                } else if (art.startsWith("file://") && !File(Uri.parse(art).path ?: "").exists()) {
                     art = null
                 }
 

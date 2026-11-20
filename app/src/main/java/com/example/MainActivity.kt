@@ -17,6 +17,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -62,8 +63,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
@@ -74,7 +77,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.model.AppStrings
 import com.example.model.ArtworkBgMode
+import com.example.model.LibrarySubTab
 import com.example.model.MainTab
+import com.example.model.SortOption
 import com.example.model.StringsProvider
 import com.example.model.Track
 import com.example.ui.components.BlurredWallpaperImage
@@ -105,11 +110,27 @@ class MainActivity : ComponentActivity() {
             SukoonAppRoot(viewModel = viewModel)
         }
     }
+
+    override fun onStop() {
+        super.onStop()
+        viewModel.persistSessionNow()
+    }
 }
 
 @Composable
 fun SukoonAppRoot(viewModel: PlayerViewModel) {
+    val isSessionReady by viewModel.isSessionReady.collectAsState()
+    if (!isSessionReady) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(NocturneColors.Black)
+        )
+        return
+    }
+
     val context = LocalContext.current
+    val initialSession by viewModel.initialSession.collectAsState()
     val settings by viewModel.settings.collectAsState()
     val strings = StringsProvider.forLang(settings.language)
     val currentTrack by viewModel.currentTrack.collectAsState()
@@ -170,22 +191,63 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
         if (toRequest.isNotEmpty()) {
             permLauncher.launch(toRequest.toTypedArray())
         } else {
-            viewModel.scanLibrary()
+            viewModel.syncLibraryOnStartup()
         }
     }
 
-    var currentTab by remember { mutableStateOf(MainTab.LIBRARY) }
+    var currentTab by remember { mutableStateOf(initialSession.lastMainTab) }
     var showFullPlayer by remember { mutableStateOf(false) }
     var menuTrack by remember { mutableStateOf<Track?>(null) }
     var detailsTrack by remember { mutableStateOf<Track?>(null) }
     var playlistPickerTrack by remember { mutableStateOf<Track?>(null) }
     var renameTrack by remember { mutableStateOf<Track?>(null) }
 
+    val miniArtCenterRef = remember { object { var center: Offset? = null } }
+    val launchOriginRef = remember { object { var center: Offset? = null } }
+    val expandProgress = remember { Animatable(0f) }
+    var isFullPlayerMounted by remember { mutableStateOf(false) }
+
+    LaunchedEffect(currentTrack?.id) {
+        if (currentTrack != null && viewModel.consumedStartupFullPlayerSnap()) {
+            isFullPlayerMounted = true
+            expandProgress.snapTo(1f)
+            showFullPlayer = true
+        }
+    }
+
+    LaunchedEffect(showFullPlayer, currentTrack != null) {
+        val shouldShow = showFullPlayer && currentTrack != null
+        if (shouldShow) {
+            if (!isFullPlayerMounted) {
+                launchOriginRef.center = miniArtCenterRef.center
+                isFullPlayerMounted = true
+            }
+            if (expandProgress.value < 0.999f) {
+                expandProgress.animateTo(
+                    targetValue = 1f,
+                    animationSpec = spring(
+                        dampingRatio = 0.86f,
+                        stiffness = 380f
+                    )
+                )
+            }
+        } else if (isFullPlayerMounted) {
+            miniArtCenterRef.center?.let { launchOriginRef.center = it }
+            expandProgress.animateTo(
+                targetValue = 0f,
+                animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing)
+            )
+            isFullPlayerMounted = false
+        }
+    }
+
     BackHandler(enabled = showFullPlayer && menuTrack == null) {
         showFullPlayer = false
+        viewModel.updateFullPlayerOpen(false)
     }
     BackHandler(enabled = !showFullPlayer && menuTrack == null && currentTab != MainTab.LIBRARY) {
         currentTab = MainTab.LIBRARY
+        viewModel.updateMainTab(MainTab.LIBRARY)
     }
 
     val layoutDir = LayoutDirection.Rtl
@@ -287,7 +349,11 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                                 onRequestPermission = { permLauncher.launch(arrayOf(audioPermission)) },
                                 onMoreClick = { menuTrack = it },
                                 bottomPadding = listBottomPad,
-                                isPageActive = pageVisible
+                                isPageActive = pageVisible,
+                                initialSubTab = initialSession.lastLibrarySubTab,
+                                initialSortOption = initialSession.lastSortOption,
+                                initialScrollIndex = initialSession.lastScrollIndex,
+                                initialScrollOffset = initialSession.lastScrollOffset
                             )
 
                             MainTab.ARTISTS -> ArtistsTabContainer(
@@ -336,7 +402,11 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                             isPlaying = isPlaying,
                             isCrossfading = isCrossfading,
                             accentColor = accentColor,
-                            onOpenFull = { showFullPlayer = true }
+                            onOpenFull = {
+                                showFullPlayer = true
+                                viewModel.updateFullPlayerOpen(true)
+                            },
+                            onArtworkPositioned = { center -> miniArtCenterRef.center = center }
                         )
                     }
 
@@ -367,6 +437,7 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                                     .testTag("nav_tab_${tab.name.lowercase()}")
                                     .clickable {
                                         currentTab = tab
+                                        viewModel.updateMainTab(tab)
                                     },
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
@@ -390,33 +461,62 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                     }
                 }
 
-                // Full Player Modal Sheet with Spring Popup Expansion
-                AnimatedVisibility(
-                    visible = showFullPlayer && currentTrack != null,
-                    enter = slideInVertically(
-                        animationSpec = spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow)
-                    ) { it } + fadeIn(tween(180)),
-                    exit = slideOutVertically(
-                        animationSpec = tween(220, easing = FastOutSlowInEasing)
-                    ) { it } + fadeOut(tween(160))
-                ) {
-                    currentTrack?.let { track ->
-                        FullPlayerContainer(
-                            viewModel = viewModel,
-                            strings = strings,
-                            track = track,
-                            isPlaying = isPlaying,
-                            crossfadeEnabled = settings.crossfadeEnabled,
-                            crossfadeSec = settings.crossfadeSec,
-                            isCrossfading = isCrossfading,
-                            showArtworkBg = settings.artworkBgMode != ArtworkBgMode.OFF,
-                            glassBlurEnabled = settings.glassBlurEnabled,
-                            lyricOffsetMs = settings.lyricOffsetMs,
-                            accentColor = accentColor,
-                            secondaryColor = secondaryColor,
-                            onClose = { showFullPlayer = false },
-                            onMoreClick = { menuTrack = track }
-                        )
+                // Full Player Modal Sheet — morphs smoothly out of the MiniPlayer artwork to fill the screen
+                if (isFullPlayerMounted && currentTrack != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer { alpha = expandProgress.value.coerceIn(0f, 1f) * 0.65f }
+                            .background(Color.Black)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                val p = expandProgress.value.coerceIn(0f, 1f)
+                                val w = size.width
+                                val h = size.height
+                                val targetCenterX = w * 0.5f
+                                val targetCenterY = h * 0.5f
+                                val fallbackOrigin = Offset(
+                                    x = if (layoutDir == LayoutDirection.Rtl) w * 0.84f else w * 0.16f,
+                                    y = h * 0.84f
+                                )
+                                val origin = launchOriginRef.center ?: fallbackOrigin
+                                val startScale = 0.14f
+                                val scale = startScale + (1f - startScale) * p
+                                scaleX = scale
+                                scaleY = scale
+                                translationX = (origin.x - targetCenterX) * (1f - p)
+                                translationY = (origin.y - targetCenterY) * (1f - p)
+                                alpha = (p / 0.16f).coerceIn(0f, 1f)
+                                shape = RoundedCornerShape(((1f - p) * 86f).dp)
+                                clip = p < 0.998f
+                            }
+                    ) {
+                        currentTrack?.let { track ->
+                            FullPlayerContainer(
+                                viewModel = viewModel,
+                                strings = strings,
+                                track = track,
+                                isPlaying = isPlaying,
+                                crossfadeEnabled = settings.crossfadeEnabled,
+                                crossfadeSec = settings.crossfadeSec,
+                                isCrossfading = isCrossfading,
+                                showArtworkBg = settings.artworkBgMode != ArtworkBgMode.OFF,
+                                glassBlurEnabled = settings.glassBlurEnabled,
+                                lyricOffsetMs = settings.lyricOffsetMs,
+                                accentColor = accentColor,
+                                secondaryColor = secondaryColor,
+                                initialPage = initialSession.lastFullPlayerPage,
+                                onPageChange = { viewModel.updateFullPlayerPage(it) },
+                                onClose = {
+                                    showFullPlayer = false
+                                    viewModel.updateFullPlayerOpen(false)
+                                },
+                                onMoreClick = { menuTrack = track }
+                            )
+                        }
                     }
                 }
 
@@ -445,6 +545,7 @@ fun SukoonAppRoot(viewModel: PlayerViewModel) {
                             onViewLyrics = {
                                 if (currentTrack?.id != t.id) viewModel.playTrack(t)
                                 showFullPlayer = true
+                                viewModel.updateFullPlayerOpen(true)
                                 menuTrack = null
                             },
                             onShowDetails = { detailsTrack = t; menuTrack = null },
@@ -512,12 +613,17 @@ private fun LibraryTabContainer(
     onRequestPermission: () -> Unit,
     onMoreClick: (Track) -> Unit,
     bottomPadding: PaddingValues,
-    isPageActive: Boolean
+    isPageActive: Boolean,
+    initialSubTab: LibrarySubTab,
+    initialSortOption: SortOption,
+    initialScrollIndex: Int,
+    initialScrollOffset: Int
 ) {
     val activeTracks by viewModel.activeTracks.collectAsState()
     val excludedTracks by viewModel.excludedTracks.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
     val favoriteIds by viewModel.favoriteIds.collectAsState()
+    val isScanning by viewModel.isScanning.collectAsState()
 
     LibraryScreen(
         strings = strings,
@@ -540,7 +646,15 @@ private fun LibraryTabContainer(
         onDeletePlaylist = { viewModel.deletePlaylist(it) },
         onRemoveFromPlaylist = { plId, tId -> viewModel.removeTrackFromPlaylist(plId, tId) },
         bottomPadding = bottomPadding,
-        isPageActive = isPageActive
+        isPageActive = isPageActive,
+        initialSubTab = initialSubTab,
+        initialSortOption = initialSortOption,
+        initialScrollIndex = initialScrollIndex,
+        initialScrollOffset = initialScrollOffset,
+        isLibraryReady = !isScanning,
+        onSubTabChange = { viewModel.updateLibrarySubTab(it) },
+        onSortOptionChange = { viewModel.updateSortOption(it) },
+        onScrollChanged = { idx, offset -> viewModel.updateLibraryScroll(idx, offset) }
     )
 }
 
@@ -660,7 +774,8 @@ private fun MiniPlayerContainer(
     isPlaying: Boolean,
     isCrossfading: Boolean,
     accentColor: Color,
-    onOpenFull: () -> Unit
+    onOpenFull: () -> Unit,
+    onArtworkPositioned: (Offset) -> Unit
 ) {
     MiniPlayerBar(
         track = track,
@@ -673,7 +788,8 @@ private fun MiniPlayerContainer(
         onOpenFull = onOpenFull,
         onTogglePlayPause = { viewModel.togglePlayPause() },
         onNext = { viewModel.seekToNext() },
-        onClose = { viewModel.stopAndClearPlayer() }
+        onClose = { viewModel.stopAndClearPlayer() },
+        onArtworkPositioned = onArtworkPositioned
     )
 }
 
@@ -691,6 +807,8 @@ private fun FullPlayerContainer(
     lyricOffsetMs: Long,
     accentColor: Color,
     secondaryColor: Color,
+    initialPage: Int,
+    onPageChange: (Int) -> Unit,
     onClose: () -> Unit,
     onMoreClick: () -> Unit
 ) {
@@ -743,6 +861,8 @@ private fun FullPlayerContainer(
         onApplyLrcFile = { viewModel.applyLrcContent(it) },
         onAdjustLyricOffset = { viewModel.adjustLyricOffset(it) },
         onSetSleepTimer = { viewModel.startSleepTimer(it) },
-        onMoreClick = onMoreClick
+        onMoreClick = onMoreClick,
+        initialPage = initialPage,
+        onPageChange = onPageChange
     )
 }

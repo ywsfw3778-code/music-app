@@ -28,10 +28,14 @@ import com.example.model.Artist
 import com.example.model.ArtworkBgMode
 import com.example.model.ExclusionReason
 import com.example.model.FolderItem
+import com.example.model.LibrarySubTab
 import com.example.model.LrcSearchResult
 import com.example.model.LyricsData
+import com.example.model.MainTab
 import com.example.model.Playlist
 import com.example.model.RepeatMode
+import com.example.model.SavedSession
+import com.example.model.SortOption
 import com.example.model.StringsProvider
 import com.example.model.Track
 import com.google.common.util.concurrent.ListenableFuture
@@ -43,6 +47,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -51,6 +56,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.UUID
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -254,6 +260,21 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val _crossfadeProgress = MutableStateFlow(0f)
     val crossfadeProgress: StateFlow<Float> = _crossfadeProgress.asStateFlow()
 
+    private val _isSessionReady = MutableStateFlow(false)
+    val isSessionReady: StateFlow<Boolean> = _isSessionReady.asStateFlow()
+
+    private val _initialSession = MutableStateFlow(SavedSession())
+    val initialSession: StateFlow<SavedSession> = _initialSession.asStateFlow()
+
+    private var savedSessionSnapshot: SavedSession = SavedSession()
+    @Volatile
+    private var hasLoadedInitialCache = false
+    @Volatile
+    private var hasAttemptedColdRestore = false
+    @Volatile
+    private var pendingStartupFullPlayerSnap = false
+    private var lastSavedPosMs = -1L
+
     private var sleepJob: Job? = null
     private var fadeJob: Job? = null
     private var fadeOutJob: Job? = null
@@ -268,11 +289,79 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         isFullPlayerVisible = visible
     }
 
+    fun consumedStartupFullPlayerSnap(): Boolean {
+        val snap = pendingStartupFullPlayerSnap
+        pendingStartupFullPlayerSnap = false
+        return snap
+    }
+
+    fun updateMainTab(tab: MainTab) {
+        _initialSession.value = _initialSession.value.copy(lastMainTab = tab)
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsStore.saveUiSession(mainTab = tab)
+        }
+    }
+
+    fun updateLibrarySubTab(subTab: LibrarySubTab) {
+        _initialSession.value = _initialSession.value.copy(lastLibrarySubTab = subTab)
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsStore.saveUiSession(librarySubTab = subTab)
+        }
+    }
+
+    fun updateSortOption(sortOption: SortOption) {
+        _initialSession.value = _initialSession.value.copy(lastSortOption = sortOption)
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsStore.saveUiSession(sortOption = sortOption)
+        }
+    }
+
+    fun updateFullPlayerOpen(open: Boolean) {
+        isFullPlayerVisible = open
+        _initialSession.value = _initialSession.value.copy(lastShowFullPlayer = open)
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsStore.saveUiSession(showFullPlayer = open)
+        }
+    }
+
+    fun updateFullPlayerPage(page: Int) {
+        val clamped = page.coerceIn(0, 2)
+        _initialSession.value = _initialSession.value.copy(lastFullPlayerPage = clamped)
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsStore.saveUiSession(fullPlayerPage = clamped)
+        }
+    }
+
+    fun updateLibraryScroll(index: Int, offset: Int) {
+        _initialSession.value = _initialSession.value.copy(
+            lastScrollIndex = index.coerceAtLeast(0),
+            lastScrollOffset = offset.coerceAtLeast(0)
+        )
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsStore.saveUiSession(scrollIndex = index, scrollOffset = offset)
+        }
+    }
+
     init {
         viewModelScope.launch {
-            val cached = withContext(Dispatchers.IO) { audioRepo.loadCachedTracks() }
-            if (cached.isNotEmpty() && _allScannedTracks.value.isEmpty()) {
-                _allScannedTracks.value = cached
+            try {
+                val session = withContext(Dispatchers.IO) { settingsStore.getSavedSession() }
+                savedSessionSnapshot = session
+                _initialSession.value = session
+                pendingStartupFullPlayerSnap = session.lastShowFullPlayer && !session.lastTrackId.isNullOrBlank()
+                _shuffleEnabled.value = session.shuffleEnabled
+                _repeatMode.value = session.repeatMode
+
+                val cached = withContext(Dispatchers.IO) { audioRepo.loadCachedTracks() }
+                if (cached.isNotEmpty() && _allScannedTracks.value.isEmpty()) {
+                    _allScannedTracks.value = cached
+                }
+                // Warm custom track titles before restoring playback
+                withContext(Dispatchers.IO) { settingsStore.customTrackTitlesFlow.first() }
+                hasLoadedInitialCache = true
+                maybeRestoreLastPlayback()
+            } finally {
+                _isSessionReady.value = true
             }
         }
         connectController()
@@ -284,15 +373,40 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun startArtistPhotoResolver() {
         viewModelScope.launch(Dispatchers.IO) {
-            delay(4500L)
+            val ctx = getApplication<Application>()
+            val artCacheDir = File(ctx.filesDir, "track_art_v2")
             val attempted = HashSet<String>()
+            var networkDelayDone = false
             artists.collect { list ->
-                val ctx = getApplication<Application>()
+                if (list.isEmpty()) return@collect
                 val map = _artistPhotos.value.toMutableMap()
-                var pendingCount = 0
+                // Pass 1: Instantly attach any already-cached disk photos in a single emit
+                var diskHits = 0
+                val toFetchOnline = mutableListOf<Artist>()
                 for (a in list) {
                     if (a.name.isBlank() || a.name == "Unknown Artist") continue
-                    if (map.containsKey(a.name) || !attempted.add(a.name)) continue
+                    if (map.containsKey(a.name)) continue
+                    val safeName = a.name.replace(Regex("[^a-zA-Z0-9_\\-\\u0600-\\u06FF]"), "_")
+                    val cachedPhoto = File(artCacheDir, "artist_${safeName}.jpg")
+                    if (cachedPhoto.exists() && cachedPhoto.length() > 0L) {
+                        map[a.name] = Uri.fromFile(cachedPhoto).toString()
+                        attempted.add(a.name)
+                        diskHits++
+                    } else if (!attempted.contains(a.name)) {
+                        toFetchOnline.add(a)
+                    }
+                }
+                if (diskHits > 0) {
+                    _artistPhotos.value = LinkedHashMap(map)
+                }
+                if (toFetchOnline.isEmpty()) return@collect
+                if (!networkDelayDone) {
+                    delay(4500L)
+                    networkDelayDone = true
+                }
+                var pendingCount = 0
+                for (a in toFetchOnline) {
+                    if (!attempted.add(a.name)) continue
                     val photoUri = OnlineMetadataResolver.resolveArtistPhoto(ctx, a.name)
                     if (!photoUri.isNullOrBlank()) {
                         map[a.name] = photoUri
@@ -313,9 +427,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun startAlbumArtResolver() {
         viewModelScope.launch(Dispatchers.IO) {
-            delay(5000L)
             val ctx = getApplication<Application>()
+            val artCacheDir = File(ctx.filesDir, "track_art_v2")
             val attempted = HashSet<String>()
+            var networkDelayDone = false
             activeTracks.collect { currentTracks ->
                 if (currentTracks.isEmpty()) return@collect
                 val grouped = LinkedHashMap<String, MutableList<Track>>()
@@ -327,15 +442,37 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 }
 
                 val map = _albumArt.value.toMutableMap()
-                var pendingCount = 0
+                var diskHits = 0
+                val toFetchOnline = mutableListOf<Triple<String, String, String>>()
                 for ((groupKey, list) in grouped) {
                     val first = list.first()
                     val normArtist = ArtistNormalizer.normalizeArtist(first.artist)
                     if (ArtistNormalizer.isFakeOrJunkAlbum(first.album, normArtist, list.size, first.title, first.fileName)) {
                         continue
                     }
-                    if ((map.containsKey(groupKey) && !map[groupKey].isNullOrBlank()) || !attempted.add(groupKey)) continue
-                    val coverUri = OnlineMetadataResolver.resolveAlbumArtOnline(ctx, first.album.trim(), normArtist)
+                    if (map.containsKey(groupKey) && !map[groupKey].isNullOrBlank()) continue
+                    val safeKey = "${normArtist}_${first.album.trim()}".replace(Regex("[^a-zA-Z0-9_\\-\\u0600-\\u06FF]"), "_")
+                    val diskFile = File(artCacheDir, "album_${safeKey}.jpg")
+                    if (diskFile.exists() && diskFile.length() > 0L) {
+                        map[groupKey] = Uri.fromFile(diskFile).toString()
+                        attempted.add(groupKey)
+                        diskHits++
+                    } else if (!attempted.contains(groupKey)) {
+                        toFetchOnline.add(Triple(groupKey, first.album.trim(), normArtist))
+                    }
+                }
+                if (diskHits > 0) {
+                    _albumArt.value = LinkedHashMap(map)
+                }
+                if (toFetchOnline.isEmpty()) return@collect
+                if (!networkDelayDone) {
+                    delay(5000L)
+                    networkDelayDone = true
+                }
+                var pendingCount = 0
+                for ((groupKey, albumTitle, normArtist) in toFetchOnline) {
+                    if (!attempted.add(groupKey)) continue
+                    val coverUri = OnlineMetadataResolver.resolveAlbumArtOnline(ctx, albumTitle, normArtist)
                     if (!coverUri.isNullOrBlank()) {
                         map[groupKey] = coverUri
                         pendingCount++
@@ -361,6 +498,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
             _allScannedTracks.collect { currentTracks ->
                 if (currentTracks.isEmpty()) return@collect
+                val hasUnresolved = currentTracks.any { t ->
+                    !t.isExcluded &&
+                        (t.artUri.isNullOrBlank() || t.artUri.startsWith("track_art://")) &&
+                        !checkedIds.contains(t.id)
+                }
+                if (!hasUnresolved) return@collect
                 delay(3200L)
 
                 val latestTracks = _allScannedTracks.value
@@ -410,7 +553,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     if (!albumCover.isNullOrBlank()) {
                         updated[i] = t.copy(artUri = albumCover)
                         hasChanges = true
-                    } else if (t.title.isNotBlank()) {
+                    } else if (t.title.isNotBlank() && !File(artCacheDir, "track_${t.id}.online_miss").exists()) {
                         val fetched = OnlineMetadataResolver.resolveTrackArtOnline(
                             context = ctx,
                             trackId = t.id,
@@ -423,8 +566,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                             updated[i] = t.copy(artUri = Uri.fromFile(cachedFile).toString())
                             hasChanges = true
                         }
+                        delay(35L)
                     }
-                    delay(35L)
                 }
 
                 if (hasChanges) {
@@ -449,15 +592,27 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 RepeatMode.ALL -> Player.REPEAT_MODE_ALL
             }
             ctrl.shuffleModeEnabled = _shuffleEnabled.value
-            syncFromPlayer(ctrl)
+            if (ctrl.currentMediaItem != null) {
+                hasAttemptedColdRestore = true
+                pendingStartupFullPlayerSnap = false
+                syncFromPlayer(ctrl)
+            } else {
+                maybeRestoreLastPlayback()
+            }
             ctrl.addListener(object : Player.Listener {
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     _isPlaying.value = isPlaying
+                    if (!isPlaying && _currentTrack.value != null) {
+                        persistSessionNow()
+                    }
                 }
 
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                     crossfadeTriggeredForTrackId = null
                     syncFromPlayer(ctrl)
+                    if (_currentTrack.value != null) {
+                        persistSessionNow()
+                    }
                     if (settings.value.crossfadeEnabled) {
                         if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && fadeJob?.isActive != true) {
                             performFadeIn(ctrl, settings.value.crossfadeSec)
@@ -485,11 +640,19 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     val pos = ctrl.currentPosition.coerceAtLeast(0L)
                     val dur = ctrl.duration.coerceAtLeast(0L)
                     playing = ctrl.isPlaying
-                    if (_positionMs.value != pos) _positionMs.value = pos
+                    if (_positionMs.value != pos && (playing || pos > 0L || ctrl.currentMediaItem == null)) {
+                        _positionMs.value = pos
+                    }
                     if (dur > 0L && _durationMs.value != dur) _durationMs.value = dur
                     if (_isPlaying.value != playing) _isPlaying.value = playing
 
                     val activeTrack = _currentTrack.value
+                    if (playing && activeTrack != null && abs(pos - lastSavedPosMs) >= 4000L) {
+                        lastSavedPosMs = pos
+                        viewModelScope.launch(Dispatchers.IO) {
+                            settingsStore.savePositionOnly(pos)
+                        }
+                    }
                     val fadeSec = settings.value.crossfadeSec.coerceIn(1, 12)
                     val fadeMs = fadeSec * 1000L
                     if (
@@ -609,14 +772,93 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun syncFromPlayer(ctrl: MediaController) {
         val currentId = ctrl.currentMediaItem?.mediaId ?: return
-        val match = _allScannedTracks.value.find { it.id == currentId }
+        val match = classifiedTracks.value.find { it.id == currentId }
+            ?: _allScannedTracks.value.find { it.id == currentId }
             ?: _queue.value.find { it.id == currentId }
         if (match != null && _currentTrack.value?.id != match.id) {
             setActiveTrackVisuals(match)
         }
-        _durationMs.value = ctrl.duration.coerceAtLeast(0L)
-        _positionMs.value = ctrl.currentPosition.coerceAtLeast(0L)
+        val dur = ctrl.duration.coerceAtLeast(0L)
+        if (dur > 0L) _durationMs.value = dur
+        val pos = ctrl.currentPosition.coerceAtLeast(0L)
+        if (pos > 0L || ctrl.isPlaying) _positionMs.value = pos
         _isPlaying.value = ctrl.isPlaying
+    }
+
+    private fun maybeRestoreLastPlayback() {
+        if (!hasLoadedInitialCache || hasAttemptedColdRestore) return
+        val ctrl = mediaController ?: return
+        if (ctrl.currentMediaItem != null) {
+            hasAttemptedColdRestore = true
+            pendingStartupFullPlayerSnap = false
+            syncFromPlayer(ctrl)
+            return
+        }
+        val session = savedSessionSnapshot
+        val targetId = session.lastTrackId
+        if (targetId.isNullOrBlank()) {
+            hasAttemptedColdRestore = true
+            pendingStartupFullPlayerSnap = false
+            return
+        }
+        val rawTracks = _allScannedTracks.value
+        if (rawTracks.isEmpty()) return
+        hasAttemptedColdRestore = true
+
+        val customTitles = customTrackTitles.value
+        val titlesApplied = rawTracks.map { t ->
+            val ct = customTitles[t.id]
+            if (ct != null) t.copy(title = ct) else t
+        }
+        val target = titlesApplied.find { it.id == targetId }
+        if (target == null) {
+            pendingStartupFullPlayerSnap = false
+            return
+        }
+
+        val byId = titlesApplied.associateBy { it.id }
+        val fromSavedQueue = session.lastQueueIds.mapNotNull { byId[it] }
+        val restoredQueue = when {
+            fromSavedQueue.any { it.id == target.id } -> fromSavedQueue
+            fromSavedQueue.isNotEmpty() -> listOf(target) + fromSavedQueue
+            else -> activeTracks.value.takeIf { q -> q.any { it.id == target.id } } ?: listOf(target)
+        }
+        val startIndex = restoredQueue.indexOfFirst { it.id == target.id }.coerceAtLeast(0)
+        val savedPos = session.lastPositionMs.coerceAtLeast(0L)
+
+        _queue.value = restoredQueue
+        _positionMs.value = savedPos
+        _durationMs.value = (target.durationSec * 1000.0).toLong().coerceAtLeast(savedPos)
+        lastSavedPosMs = savedPos
+        setActiveTrackVisuals(target)
+
+        ctrl.repeatMode = when (_repeatMode.value) {
+            RepeatMode.OFF -> Player.REPEAT_MODE_OFF
+            RepeatMode.ONE -> Player.REPEAT_MODE_ONE
+            RepeatMode.ALL -> Player.REPEAT_MODE_ALL
+        }
+        ctrl.shuffleModeEnabled = _shuffleEnabled.value
+        val items = restoredQueue.map { toMediaItem(it) }
+        ctrl.setMediaItems(items, startIndex, savedPos)
+        ctrl.prepare()
+    }
+
+    fun persistSessionNow() {
+        val track = _currentTrack.value
+        val pos = mediaController?.currentPosition?.coerceAtLeast(0L) ?: _positionMs.value
+        val qIds = _queue.value.map { it.id }
+        val shuf = _shuffleEnabled.value
+        val rep = _repeatMode.value
+        if (track != null) lastSavedPosMs = pos
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsStore.savePlaybackSession(
+                trackId = track?.id,
+                positionMs = pos,
+                queueIds = qIds,
+                shuffleEnabled = shuf,
+                repeatMode = rep
+            )
+        }
     }
 
     private fun setActiveTrackVisuals(track: Track) {
@@ -672,23 +914,46 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun scanLibrary() {
+    fun syncLibraryOnStartup() {
         if (_isScanning.value) return
         viewModelScope.launch {
-            _isScanning.value = true
-            val scanned = audioRepo.scanDeviceTracks(
-                settings = settings.value,
-                manualExcludedIds = manualExcludedIds.value,
-                manualRestoredIds = manualRestoredIds.value
-            )
-            val prev = _allScannedTracks.value
-            val unchanged = prev.size == scanned.size && prev.indices.all { i ->
-                prev[i].id == scanned[i].id && prev[i].artUri == scanned[i].artUri
+            while (!hasLoadedInitialCache) delay(15L)
+            if (_allScannedTracks.value.isEmpty()) {
+                scanLibrary()
+                return@launch
             }
-            if (!unchanged) {
-                _allScannedTracks.value = scanned
+            // Cached tracks already displayed cleanly; run quiet diff check in background without forcing UI rebuild
+            delay(1800L)
+            scanLibrary(silentIfUnchanged = true)
+        }
+    }
+
+    fun scanLibrary(silentIfUnchanged: Boolean = false) {
+        if (_isScanning.value) return
+        viewModelScope.launch {
+            if (!silentIfUnchanged) _isScanning.value = true
+            try {
+                val prev = _allScannedTracks.value
+                val existingById = prev.associateBy { it.id }
+                val scanned = audioRepo.scanDeviceTracks(
+                    settings = settings.value,
+                    manualExcludedIds = manualExcludedIds.value,
+                    manualRestoredIds = manualRestoredIds.value,
+                    existingTracksById = existingById
+                )
+                val unchanged = prev.size == scanned.size && prev.indices.all { i ->
+                    prev[i].id == scanned[i].id &&
+                        prev[i].artUri == scanned[i].artUri &&
+                        prev[i].title == scanned[i].title &&
+                        prev[i].artist == scanned[i].artist
+                }
+                if (!unchanged) {
+                    _allScannedTracks.value = scanned
+                }
+                maybeRestoreLastPlayback()
+            } finally {
+                _isScanning.value = false
             }
-            _isScanning.value = false
         }
     }
 
@@ -707,7 +972,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val startIndex = list.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
         setActiveTrackVisuals(track)
 
-        if (ctrl == null) return
+        if (ctrl == null) {
+            persistSessionNow()
+            return
+        }
         if (shouldCrossfade) {
             val fadeSec = settings.value.crossfadeSec.coerceIn(1, 12)
             startFadeOutOverlay(prevTrack, prevPos, fadeSec, ctrl.volume)
@@ -736,6 +1004,9 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         if (shouldCrossfade) {
             performFadeIn(ctrl, settings.value.crossfadeSec)
         }
+        _positionMs.value = 0L
+        lastSavedPosMs = 0L
+        persistSessionNow()
     }
 
     fun playAll(tracks: List<Track>) {
@@ -779,8 +1050,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun seekTo(positionMs: Long) {
-        mediaController?.seekTo(positionMs.coerceAtLeast(0L))
-        _positionMs.value = positionMs.coerceAtLeast(0L)
+        val clamped = positionMs.coerceAtLeast(0L)
+        mediaController?.seekTo(clamped)
+        _positionMs.value = clamped
+        lastSavedPosMs = clamped
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsStore.savePositionOnly(clamped)
+        }
     }
 
     fun stopAndClearPlayer() {
@@ -797,12 +1073,17 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         _positionMs.value = 0L
         _durationMs.value = 0L
         _queue.value = emptyList()
+        lastSavedPosMs = 0L
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsStore.clearPlaybackSession()
+        }
     }
 
     fun toggleShuffle() {
         val next = !_shuffleEnabled.value
         _shuffleEnabled.value = next
         mediaController?.shuffleModeEnabled = next
+        persistSessionNow()
     }
 
     fun cycleRepeatMode() {
@@ -817,6 +1098,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             RepeatMode.ONE -> Player.REPEAT_MODE_ONE
             RepeatMode.ALL -> Player.REPEAT_MODE_ALL
         }
+        persistSessionNow()
     }
 
     fun playNext(track: Track) {
@@ -833,6 +1115,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val qIdx = (currentIdx + 1).coerceAtMost(mutable.size)
         mutable.add(qIdx, track)
         _queue.value = mutable
+        persistSessionNow()
         showToast(s.toastPlayNext)
     }
 
@@ -845,6 +1128,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
         ctrl.addMediaItem(toMediaItem(track))
         _queue.value = _queue.value + track
+        persistSessionNow()
         showToast(s.toastAddedQueue)
     }
 
@@ -857,6 +1141,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         ctrl.prepare()
         if (wasPlaying) ctrl.play()
         _queue.value = listOf(current)
+        persistSessionNow()
     }
 
     fun toggleFavorite(trackId: String) {
