@@ -20,6 +20,8 @@ A native Android music player built with Kotlin, Jetpack Compose, Material 3, Me
 
 ## Build & Test
 
-- `applicationId`: `com.aistudio.nocturne.kxmpzq`
+- `applicationId` (GitHub releases): `com.kyouma.sukoon`
 - `minSdk`: `24`, `targetSdk`: `36`, `compileSdk`: `36`
 - Run unit tests: `gradle :app:testDebugUnitTest`
+
+> Note: the `com.apple.android.music` package name is for the developer's personal phone build only. GitHub releases use `com.kyouma.sukoon`.
